@@ -1,0 +1,43 @@
+erDiagram
+  USUARIOS ||--|| ENDERECOS : possui
+  USUARIOS ||--o| ALUNOS : especializa
+  USUARIOS ||--o| EMPRESAS_PARCEIRAS : especializa
+  INSTITUICOES_ENSINO ||--o{ ALUNOS : matricula
+  USUARIOS {
+    int id PK
+    varchar nome
+    varchar email UK
+    varchar tipo
+    varchar senha_hash "nullable"
+    timestamp criado_em
+    timestamp atualizado_em
+  }
+  ENDERECOS {
+    int id PK
+    int usuario_id FK,UK
+    varchar logradouro
+    varchar numero
+    varchar complemento "nullable"
+    varchar bairro
+    varchar cidade
+    char estado
+    char cep
+  }
+  INSTITUICOES_ENSINO {
+    int id PK
+    varchar nome UK
+    varchar sigla UK
+  }
+  ALUNOS {
+    int usuario_id PK,FK
+    char cpf UK
+    varchar rg
+    varchar curso
+    int instituicao_id FK
+    numeric saldo "default 0"
+  }
+  EMPRESAS_PARCEIRAS {
+    int usuario_id PK,FK
+    char cnpj UK
+    varchar telefone
+  }

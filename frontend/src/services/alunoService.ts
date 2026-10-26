@@ -1,0 +1,2 @@
+import {api} from './api'; import type{Aluno,AlunoCreate,AlunoUpdate}from'../types';
+export const alunoService={listar:async(busca='')=>(await api.get<Aluno[]>('/alunos',{params:{busca:busca||undefined}})).data,obter:async(id:number)=>(await api.get<Aluno>(`/alunos/${id}`)).data,criar:async(data:AlunoCreate)=>(await api.post<Aluno>('/alunos',data)).data,atualizar:async(id:number,data:AlunoUpdate)=>(await api.put<Aluno>(`/alunos/${id}`,data)).data,excluir:async(id:number)=>{await api.delete(`/alunos/${id}`)}};

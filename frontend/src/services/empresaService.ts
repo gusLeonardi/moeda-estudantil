@@ -1,0 +1,2 @@
+import {api} from './api'; import type{Empresa,EmpresaCreate,EmpresaUpdate}from'../types';
+export const empresaService={listar:async(busca='')=>(await api.get<Empresa[]>('/empresas',{params:{busca:busca||undefined}})).data,obter:async(id:number)=>(await api.get<Empresa>(`/empresas/${id}`)).data,criar:async(data:EmpresaCreate)=>(await api.post<Empresa>('/empresas',data)).data,atualizar:async(id:number,data:EmpresaUpdate)=>(await api.put<Empresa>(`/empresas/${id}`,data)).data,excluir:async(id:number)=>{await api.delete(`/empresas/${id}`)}};
