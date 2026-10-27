@@ -1,0 +1,64 @@
+@startuml casos-de-uso
+title Diagrama de Casos de Uso — Conquista (situação na Sprint 2)
+left to right direction
+skinparam shadowing false
+skinparam usecase {
+  BackgroundColor White
+  BorderColor #52606d
+  BorderThickness 1
+}
+skinparam usecase<<parcial>> {
+  BackgroundColor #fff4d6
+  BorderColor #b7791f
+}
+
+actor "Sistema\n(agendamento e\nnotificações)" as SIS <<ator>>
+actor "Aluno" as ALU <<ator>>
+actor "Professor" as PRO <<ator>>
+actor "Empresa\nParceira" as EMP <<ator>>
+
+rectangle "Sistema de Moeda Estudantil" {
+  usecase "UC12 Creditar moedas semestrais" as UC12
+  usecase "UC02 Cadastrar aluno" as UC02 <<parcial>>
+  usecase "UC03 Gerenciar perfil do aluno (CRUD)" as UC03 <<parcial>>
+  usecase "UC07 Listar vantagens" as UC07
+  usecase "UC10 Trocar moedas por vantagem" as UC10
+  usecase "UC09 Consultar extrato" as UC09
+  usecase "UC08 Enviar moedas" as UC08
+  usecase "UC04 Cadastrar empresa parceira" as UC04 <<parcial>>
+  usecase "UC05 Gerenciar empresa (CRUD)" as UC05 <<parcial>>
+  usecase "UC06 Cadastrar vantagem" as UC06
+  usecase "UC11 Conferir cupom" as UC11
+  usecase "UC13 Enviar e-mail\nde notificação" as UC13
+  usecase "UC01 Autenticar" as UC01
+}
+
+SIS --> UC12
+SIS --> UC13
+ALU --> UC02
+ALU --> UC03
+ALU --> UC07
+ALU --> UC10
+ALU --> UC09
+PRO --> UC09
+PRO --> UC08
+EMP --> UC04
+EMP --> UC05
+EMP --> UC06
+EMP --> UC11
+
+UC03 ..> UC01 : <<include>>
+UC07 ..> UC01 : <<include>>
+UC09 ..> UC01 : <<include>>
+UC08 ..> UC01 : <<include>>
+UC10 ..> UC01 : <<include>>
+UC05 ..> UC01 : <<include>>
+UC06 ..> UC01 : <<include>>
+UC11 ..> UC01 : <<include>>
+UC10 ..> UC13 : <<include>>
+UC08 ..> UC13 : <<include>>
+
+legend bottom
+  Amarelo: parcial na Sprint 2 (sem login/senha). Branco: previsto (Sprint 3).
+endlegend
+@enduml
