@@ -1,40 +1,38 @@
-# Fluxos de moedas, vantagens e resgates
+# Auditoria técnica da Sprint 3
 
-## Limite de segurança
+## Escopo revisado
 
-Esta versão não possui autenticação nem autorização. Cadastro de professores, transferências, gestão de vantagens e resgates são fluxos administrativos de demonstração e devem permanecer restritos ao ambiente local.
+Foram analisados README, estrutura das aplicações, models SQLAlchemy, schemas Pydantic, routers, services, repositories, migração Alembic, testes, modelo ER e integração React/API.
 
-## Transferência do professor para o aluno
+## Correções aplicadas
 
-1. A API valida professor, aluno, quantidade inteira positiva e justificativa.
-2. O repository executa um `UPDATE` condicional: debita apenas quando `saldo >= quantidade`.
-3. O saldo do aluno é creditado na mesma sessão.
-4. A transferência é registrada com data, valor e justificativa.
-5. Um único `commit` confirma todas as alterações.
-6. Qualquer falha provoca `rollback`.
+- validação completa dos dígitos verificadores de CPF e CNPJ no backend e frontend;
+- testes de documentos inválidos, duplicidades, recursos inexistentes e campos imutáveis;
+- busca de alunos por nome, e-mail, CPF, curso e instituição;
+- busca de empresas por nome, e-mail e CNPJ;
+- endpoint agregado de indicadores para evitar baixar listagens completas no dashboard;
+- documentação expandida de arquitetura, persistência e demonstração;
+- atualização do escopo para o Lab03S03 atual.
 
-O débito condicional protege contra duas requisições concorrentes consumirem o mesmo saldo.
+## Aspectos preservados
 
-Diagrama editável: [fluxo-transferencia.mmd](fluxo-transferencia.mmd).
+- arquitetura React, routers, services, repositories, SQLAlchemy e PostgreSQL;
+- especialização relacional de aluno e empresa por `Usuario`;
+- CPF, CNPJ e saldo ausentes dos schemas de atualização;
+- transação por operação com rollback de conflitos;
+- configuração do Neon exclusivamente por variável de ambiente;
+- migração existente, pois as correções não alteraram o schema.
 
-## Extratos
+## Riscos conhecidos
 
-O extrato do professor apresenta saldo, total distribuído e transferências em ordem decrescente de data. O extrato do aluno combina recebimentos e resgates, também do mais recente para o mais antigo.
+- a API ainda não possui autenticação ou autorização, deliberadamente fora do escopo;
+- os testes frontend cobrem validação e interpretação de erros, mas ainda não executam fluxos completos no navegador;
+- o campo `senha_hash` permanece nullable e sem uso até uma sprint futura autorizada;
+- o frontend depende da disponibilidade da API e não oferece operação offline.
 
-## Resgate
+## Verificações executadas
 
-1. O aluno e a vantagem precisam existir.
-2. A vantagem deve estar ativa.
-3. O débito do aluno ocorre com `UPDATE` condicional.
-4. O resgate registra custo histórico, empresa, vantagem e cupom.
-5. `idempotency_key` impede processamento duplicado do mesmo pedido.
-6. `codigo_cupom` é único.
-7. A interface apresenta o cupom após o commit.
-
-Vantagens não são excluídas pelo fluxo administrativo; são desativadas. As chaves estrangeiras com `RESTRICT` preservam transferências e resgates históricos.
-
-Diagrama editável: [fluxo-resgate.mmd](fluxo-resgate.mmd).
-
-## E-mail
-
-Não existe infraestrutura de e-mail no projeto. Nenhum envio é simulado. O cupom permanece funcional na interface, e a notificação por e-mail fica documentada como pendência.
+- backend: `19 passed` com pytest e SQLite isolado, incluindo o fluxo de moedas;
+- frontend: `4 passed` com Vitest;
+- produção: TypeScript e build Vite concluídos;
+- banco remoto: nenhuma operação executada.

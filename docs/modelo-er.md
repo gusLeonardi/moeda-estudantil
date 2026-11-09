@@ -1,23 +1,44 @@
-# Modelo Entidade-Relacionamento — Sprint 3
-
-O modelo implementado usa `usuarios` como supertipo para identidade, e-mail e a futura autenticação. `alunos` e `empresas_parceiras` são especializações 1:0..1 com chave primária também estrangeira. Cada usuário tem exatamente um endereço e cada aluno pertence a uma instituição.
-
-## Restrições
-
-- `usuarios.email`, `alunos.cpf`, `empresas_parceiras.cnpj`, `instituicoes_ensino.nome` e `instituicoes_ensino.sigla` são únicos.
-- `usuarios.tipo` aceita apenas `ALUNO` ou `EMPRESA`.
-- `alunos.saldo` começa em zero e não aparece nos schemas de criação/atualização.
-- exclusão de usuário remove sua especialização e endereço; a instituição é protegida por `RESTRICT`.
-- CPF, CNPJ e CEP são persistidos apenas com dígitos.
-
-O diagrama renderizável está em [modelo-er.mmd](modelo-er.mmd).
-
-## Relação com a Sprint 1
-
-Os documentos `Lab03S01-modelagem.pdf` (8 páginas) e `LABORATORIO_3_LAB_DESENVOLVIMENTO_DE_SOFTWARE.pdf` (2 páginas) foram revisados. As entidades `Usuario`, `Aluno`, `EmpresaParceira`, `InstituicaoEnsino` e `Endereco` preservam o núcleo cadastral e a decisão da Sprint 1 de centralizar identidade/autenticação em `Usuario`. A especialização relacional por PK/FK materializa a herança do diagrama de classes.
-
-A modelagem original prevê login/senha para todos os perfis. Nesta versão inicial, `senha_hash` reserva a persistência segura, mas login e autenticação foram conscientemente adiados: expor um login sem rotas protegidas criaria uma falsa sensação de segurança. O campo deverá se tornar obrigatório quando OAuth2/JWT, hash forte e autorização por perfil forem entregues.
-
-## Evolução posterior
-
-Este arquivo preserva o modelo cadastral consolidado na Sprint 3. A extensão implementada posteriormente para professores, transferências, vantagens e resgates está documentada separadamente em [modelo-er-moedas.mmd](modelo-er-moedas.mmd), preservando a versão anterior. Autenticação continua não implementada.
+%% Conquista — Modelo ER da Sprint 3
+erDiagram
+  USUARIOS ||--|| ENDERECOS : possui
+  USUARIOS ||--o| ALUNOS : especializa
+  USUARIOS ||--o| EMPRESAS_PARCEIRAS : especializa
+  INSTITUICOES_ENSINO ||--o{ ALUNOS : matricula
+  USUARIOS {
+    int id PK
+    varchar nome
+    varchar email UK
+    varchar tipo
+    varchar senha_hash "nullable"
+    timestamp criado_em
+    timestamp atualizado_em
+  }
+  ENDERECOS {
+    int id PK
+    int usuario_id FK,UK
+    varchar logradouro
+    varchar numero
+    varchar complemento "nullable"
+    varchar bairro
+    varchar cidade
+    char estado
+    char cep
+  }
+  INSTITUICOES_ENSINO {
+    int id PK
+    varchar nome UK
+    varchar sigla UK
+  }
+  ALUNOS {
+    int usuario_id PK,FK
+    char cpf UK
+    varchar rg
+    varchar curso
+    int instituicao_id FK
+    numeric saldo "default 0.00"
+  }
+  EMPRESAS_PARCEIRAS {
+    int usuario_id PK,FK
+    char cnpj UK
+    varchar telefone
+  }

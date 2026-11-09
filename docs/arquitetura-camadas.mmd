@@ -1,36 +1,35 @@
-%% Conquista — Arquitetura em camadas
-flowchart LR
-  subgraph Cliente[Cliente web]
-    UI[React + TypeScript]
-    Forms[React Hook Form + Zod]
-    HTTP[Axios]
-    UI --> Forms --> HTTP
-  end
+%% Conquista — classes do fluxo de moedas
+classDiagram
+  Usuario <|-- Aluno
+  Usuario <|-- Professor
+  Usuario <|-- EmpresaParceira
+  InstituicaoEnsino "1" --> "0..*" Aluno
+  InstituicaoEnsino "1" --> "0..*" Professor
+  Professor "1" --> "0..*" TransferenciaMoedas
+  Aluno "1" --> "0..*" TransferenciaMoedas
+  EmpresaParceira "1" --> "0..*" Vantagem
+  Aluno "1" --> "0..*" ResgateVantagem
+  Vantagem "1" --> "0..*" ResgateVantagem
 
-  subgraph API[API FastAPI]
-    Router[Routers REST]
-    Schema[Schemas Pydantic]
-    Service[Services]
-    Repository[Repositories]
-    ORM[Models SQLAlchemy]
-    Router --> Schema
-    Schema --> Service
-    Service --> Repository
-    Repository --> ORM
-  end
-
-  subgraph Dados[Persistência]
-    PostgreSQL[(PostgreSQL no Neon)]
-    Alembic[Alembic]
-    Alembic -. versiona o schema .-> PostgreSQL
-  end
-
-  HTTP -- HTTP / JSON --> Router
-  ORM --> PostgreSQL
-
-  classDef presentation fill:#dbeafe,stroke:#1d4ed8,color:#172554
-  classDef application fill:#ccfbf1,stroke:#0f766e,color:#134e4a
-  classDef persistence fill:#fef3c7,stroke:#b45309,color:#78350f
-  class UI,Forms,HTTP presentation
-  class Router,Schema,Service,Repository application
-  class ORM,PostgreSQL,Alembic persistence
+  class Professor {
+    +cpf: str
+    +departamento: str
+    +saldo: Decimal
+  }
+  class TransferenciaMoedas {
+    +quantidade: Decimal
+    +justificativa: str
+    +criado_em: datetime
+  }
+  class Vantagem {
+    +nome: str
+    +descricao: str
+    +custo: Decimal
+    +ativa: bool
+  }
+  class ResgateVantagem {
+    +custo: Decimal
+    +codigo_cupom: str
+    +idempotency_key: str
+    +criado_em: datetime
+  }
