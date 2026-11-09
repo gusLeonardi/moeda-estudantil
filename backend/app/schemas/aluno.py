@@ -3,7 +3,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from .common import EnderecoInput, EnderecoResponse, only_digits
+from .common import EnderecoInput, EnderecoResponse, is_valid_cpf, only_digits
 
 
 class AlunoCreate(BaseModel):
@@ -19,7 +19,7 @@ class AlunoCreate(BaseModel):
     @classmethod
     def validate_cpf(cls, value: str) -> str:
         digits = only_digits(value)
-        if len(digits) != 11 or len(set(digits)) == 1:
+        if not is_valid_cpf(digits):
             raise ValueError("CPF inválido")
         return digits
 
@@ -50,4 +50,3 @@ class AlunoResponse(BaseModel):
     saldo: Decimal
     instituicao: InstituicaoResumo
     endereco: EnderecoResponse
-

@@ -1,0 +1,18 @@
+%% Conquista — Visão de implantação
+flowchart LR
+  User[Usuário]
+  Browser[Navegador]
+  Frontend[Aplicação React / Vite]
+  API[API FastAPI / Uvicorn]
+  Neon[(PostgreSQL / Neon)]
+  Env[Variáveis de ambiente]
+
+  User --> Browser
+  Browser --> Frontend
+  Frontend -- HTTPS / JSON --> API
+  API -- TLS + psycopg --> Neon
+  Env -. VITE_API_URL .-> Frontend
+  Env -. DATABASE_URL e CORS_ORIGINS .-> API
+
+  note[Autenticação e autorização permanecem fora do escopo da Sprint 3]
+  note -. restrição atual .-> API

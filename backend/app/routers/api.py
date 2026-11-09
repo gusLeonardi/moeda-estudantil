@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.schemas.aluno import AlunoCreate, AlunoResponse, AlunoUpdate, InstituicaoResumo
 from app.schemas.empresa import EmpresaCreate, EmpresaResponse, EmpresaUpdate
-from app.services.crud import AlunoService, EmpresaService, InstituicaoService
+from app.services.crud import AlunoService, DashboardService, EmpresaService, InstituicaoService
 
 router = APIRouter()
 Db = Annotated[Session, Depends(get_db)]
@@ -39,3 +39,7 @@ def excluir_empresa(entity_id: int, db: Db): EmpresaService(db).delete(entity_id
 @router.get("/instituicoes", response_model=list[InstituicaoResumo])
 def listar_instituicoes(db: Db): return InstituicaoService(db).list()
 
+
+@router.get("/dashboard/indicadores", response_model=dict[str, int])
+def obter_indicadores(db: Db):
+    return DashboardService(db).indicators()

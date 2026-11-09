@@ -97,3 +97,13 @@ class InstituicaoService:
     def __init__(self, db: Session): self.db = db
     def list(self): return list(self.db.scalars(select(InstituicaoEnsino).order_by(InstituicaoEnsino.nome)).all())
 
+
+class DashboardService:
+    def __init__(self, db: Session):
+        self.repo = UsuarioRepository(db)
+
+    def indicators(self) -> dict[str, int]:
+        return {
+            "total_alunos": self.repo.count_by_type("ALUNO"),
+            "total_empresas": self.repo.count_by_type("EMPRESA"),
+        }

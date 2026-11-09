@@ -2,7 +2,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from .common import EnderecoInput, EnderecoResponse, only_digits
+from .common import EnderecoInput, EnderecoResponse, is_valid_cnpj, only_digits
 
 
 class EmpresaCreate(BaseModel):
@@ -16,7 +16,7 @@ class EmpresaCreate(BaseModel):
     @classmethod
     def validate_cnpj(cls, value: str) -> str:
         digits = only_digits(value)
-        if len(digits) != 14 or len(set(digits)) == 1:
+        if not is_valid_cnpj(digits):
             raise ValueError("CNPJ inválido")
         return digits
 
@@ -35,4 +35,3 @@ class EmpresaResponse(BaseModel):
     cnpj: str
     telefone: str
     endereco: EnderecoResponse
-

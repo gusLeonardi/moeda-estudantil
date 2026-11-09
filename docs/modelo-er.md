@@ -1,4 +1,4 @@
-# Modelo Entidade-Relacionamento — Sprint 2
+# Modelo Entidade-Relacionamento — Sprint 3
 
 O modelo implementado usa `usuarios` como supertipo para identidade, e-mail e a futura autenticação. `alunos` e `empresas_parceiras` são especializações 1:0..1 com chave primária também estrangeira. Cada usuário tem exatamente um endereço e cada aluno pertence a uma instituição.
 
@@ -18,6 +18,6 @@ Os documentos `Lab03S01-modelagem.pdf` (8 páginas) e `LABORATORIO_3_LAB_DESENVO
 
 A modelagem original prevê login/senha para todos os perfis. Nesta versão inicial, `senha_hash` reserva a persistência segura, mas login e autenticação foram conscientemente adiados: expor um login sem rotas protegidas criaria uma falsa sensação de segurança. O campo deverá se tornar obrigatório quando OAuth2/JWT, hash forte e autorização por perfil forem entregues.
 
-## Limite da Sprint 2
+## Limite da Sprint 3
 
-`Professor`, `Vantagem`, `Transacao`, `TransacaoEnvio` e `TransacaoResgate` permanecem planejados para a Sprint 3, exatamente como extensões do modelo de classes. Não foram criadas tabelas vazias nem regras fictícias para envio, extrato, resgate ou crédito semestral. `senha_hash` apenas reserva a estrutura de autenticação; nenhum login foi simulado.
+`Professor`, `Vantagem`, `Transacao`, `TransacaoEnvio` e `TransacaoResgate` permanecem fora do escopo desta entrega. Não foram criadas tabelas vazias nem regras fictícias para envio, extrato, resgate ou crédito semestral. `senha_hash` apenas reserva a estrutura de autenticação; nenhum login foi simulado.

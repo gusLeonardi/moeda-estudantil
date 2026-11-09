@@ -1,0 +1,55 @@
+%% Conquista — Fluxo completo de cadastro de aluno
+sequenceDiagram
+  autonumber
+  actor Usuario as Usuário
+  participant Form as Formulário React
+  participant Zod
+  participant Axios
+  participant Router as Router FastAPI
+  participant Pydantic
+  participant Service as AlunoService
+  participant Repo as UsuarioRepository
+  participant ORM as SQLAlchemy
+  participant DB as PostgreSQL
+
+  Usuario->>Form: Preenche dados e seleciona instituição
+  Form->>Zod: Valida campos, CPF, e-mail e endereço
+  alt Dados inválidos no cliente
+    Zod-->>Form: Erros por campo
+    Form-->>Usuario: Exibe mensagens de validação
+  else Dados válidos
+    Form->>Axios: Envia POST /api/alunos
+    Axios->>Router: HTTP com JSON
+    Router->>Pydantic: Constrói AlunoCreate
+    alt Payload inválido
+      Pydantic-->>Axios: HTTP 422
+      Axios-->>Form: Mensagem de validação
+    else Payload válido
+      Router->>Service: create(data)
+      Service->>Repo: Consulta instituição e duplicidades
+      Repo->>ORM: Executa consultas tipadas
+      ORM->>DB: SELECT
+      DB-->>ORM: Resultado
+      alt Instituição inexistente
+        Service-->>Router: NotFoundError
+        Router-->>Axios: HTTP 404
+      else CPF ou e-mail duplicado
+        Service-->>Router: ConflictError
+        Router-->>Axios: HTTP 409
+      else Cadastro permitido
+        Service->>Repo: Solicita persistência de Usuario, Endereco e Aluno
+        Repo->>ORM: Adiciona o agregado à sessão
+        ORM->>DB: INSERT em uma transação
+        alt Conflito de integridade
+          DB-->>ORM: IntegrityError
+          Service->>ORM: rollback da sessão
+          Router-->>Axios: HTTP 409
+        else Persistência concluída
+          Service->>ORM: commit da sessão
+          Router-->>Axios: HTTP 201 com AlunoResponse
+          Axios-->>Form: Aluno cadastrado
+          Form-->>Usuario: Redireciona e informa sucesso
+        end
+      end
+    end
+  end

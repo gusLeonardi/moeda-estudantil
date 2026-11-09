@@ -9,7 +9,7 @@ from app.services.errors import ConflictError, NotFoundError
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    application = FastAPI(title=settings.app_name, version="2.0.0", docs_url="/docs")
+    application = FastAPI(title=settings.app_name, version="3.0.0", docs_url="/docs")
     application.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_credentials=False, allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"], allow_headers=["Content-Type", "Authorization"])
     application.include_router(router, prefix=settings.api_prefix)
 

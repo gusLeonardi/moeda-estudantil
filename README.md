@@ -10,13 +10,13 @@ Construir uma aplicação web que conecte alunos, professores, instituições de
 
 - **Sprint 1:** levantamento de requisitos e modelagem UML;
 - **Sprint 2:** modelo ER, estratégia de persistência e CRUDs iniciais de alunos e empresas parceiras;
-- **Sprint 3:** continuidade das funcionalidades de negócio, autenticação e operações com moedas.
+- **Sprint 3:** finalização dos CRUDs de alunos e empresas, arquitetura, persistência e apresentação.
 
-Este repositório contém a implementação da **Sprint 2 — Lab03S02**.
+Este repositório contém a implementação da **Sprint 3 — Lab03S03**.
 
 ## Funcionalidades
 
-### Implementadas na Sprint 2
+### Entregues na Sprint 3
 
 - dashboard inicial com indicadores obtidos da API;
 - cadastro, listagem, busca, consulta, edição e exclusão de alunos;
@@ -31,7 +31,7 @@ Este repositório contém a implementação da **Sprint 2 — Lab03S02**.
 - integração entre o cliente React e a API FastAPI;
 - tratamento visual de carregamento, erros e listas vazias.
 
-### Previstas para a Sprint 3
+### Fora do escopo desta Sprint 3
 
 - autenticação e controle de acesso por perfil;
 - cadastro e gerenciamento de professores;
@@ -43,7 +43,7 @@ Este repositório contém a implementação da **Sprint 2 — Lab03S02**.
 - notificações por e-mail;
 - crédito semestral de moedas aos professores.
 
-> As funcionalidades da Sprint 3 ainda não estão implementadas. Os CRUDs atuais são destinados ao desenvolvimento e à avaliação local e não devem ser publicados sem autenticação e autorização.
+> Professores, autenticação, transações, moedas, vantagens e resgates não fazem parte desta entrega. Os CRUDs são destinados ao desenvolvimento e à avaliação acadêmica e não devem ser publicados sem autenticação e autorização.
 
 ## Tecnologias
 
@@ -232,6 +232,7 @@ Acesse a aplicação em `http://localhost:5173`.
 | `PUT` | `/api/empresas/{id}` | Atualiza uma empresa |
 | `DELETE` | `/api/empresas/{id}` | Exclui uma empresa |
 | `GET` | `/api/instituicoes` | Lista instituições de ensino |
+| `GET` | `/api/dashboard/indicadores` | Retorna totais de alunos e empresas |
 
 ## Modelo de dados
 
@@ -249,7 +250,14 @@ Documentação detalhada:
 
 - [Modelo Entidade-Relacionamento](docs/modelo-er.md);
 - [Diagrama ER em Mermaid](docs/modelo-er.mmd);
-- [Arquitetura do sistema](docs/arquitetura.md).
+- [Arquitetura do sistema](docs/arquitetura.md);
+- [Arquitetura em camadas](docs/arquitetura-camadas.mmd);
+- [Diagrama de componentes](docs/componentes.mmd);
+- [Sequência do cadastro de aluno](docs/sequencia-cadastro-aluno.mmd);
+- [Visão de implantação](docs/implantacao.mmd);
+- [Consistência com os modelos UML](docs/consistencia-uml.md);
+- [Camada de persistência](docs/persistencia.md);
+- [Roteiro da apresentação](docs/roteiro-apresentacao.md).
 
 ## Testes
 
@@ -305,6 +313,4 @@ npm run build
 
 ## Estado atual
 
-A **Sprint 2 está implementada**, incluindo a estrutura de persistência, migrações, seed, integração entre front-end e back-end e CRUDs iniciais de alunos e empresas parceiras.
-
-A **Sprint 3 está prevista** para completar autenticação, professores e os fluxos relacionados a moedas, extratos, vantagens, resgates, cupons e notificações.
+A **Sprint 3 está implementada** no escopo do Lab03S03: CRUDs finais de alunos e empresas parceiras, persistência, arquitetura, testes e material de apresentação. Funcionalidades de autenticação, professores e operações com moedas permanecem fora do escopo desta entrega.

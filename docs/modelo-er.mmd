@@ -1,3 +1,4 @@
+%% Conquista — Modelo ER da Sprint 3
 erDiagram
   USUARIOS ||--|| ENDERECOS : possui
   USUARIOS ||--o| ALUNOS : especializa
@@ -34,7 +35,7 @@ erDiagram
     varchar rg
     varchar curso
     int instituicao_id FK
-    numeric saldo "default 0"
+    numeric saldo "default 0.00"
   }
   EMPRESAS_PARCEIRAS {
     int usuario_id PK,FK
