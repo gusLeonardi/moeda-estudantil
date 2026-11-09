@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Aluno, EmpresaParceira, Endereco, InstituicaoEnsino, Usuario
 from app.repositories.usuario import UsuarioRepository
+from app.repositories.vantagens import VantagemRepository
 from app.schemas.aluno import AlunoCreate, AlunoResponse, AlunoUpdate
 from app.schemas.empresa import EmpresaCreate, EmpresaResponse, EmpresaUpdate
 from .errors import ConflictError, NotFoundError
@@ -101,9 +102,12 @@ class InstituicaoService:
 class DashboardService:
     def __init__(self, db: Session):
         self.repo = UsuarioRepository(db)
+        self.vantagens = VantagemRepository(db)
 
     def indicators(self) -> dict[str, int]:
         return {
             "total_alunos": self.repo.count_by_type("ALUNO"),
             "total_empresas": self.repo.count_by_type("EMPRESA"),
+            "total_professores": self.repo.count_by_type("PROFESSOR"),
+            "total_vantagens": self.vantagens.count(),
         }

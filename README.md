@@ -30,20 +30,21 @@ Este repositório contém a implementação da **Sprint 3 — Lab03S03**.
 - persistência com PostgreSQL e migrações Alembic;
 - integração entre o cliente React e a API FastAPI;
 - tratamento visual de carregamento, erros e listas vazias.
+- cadastro administrativo de professores com saldo inicial de 1.000 moedas;
+- distribuição atômica de moedas para alunos;
+- extratos de professores e alunos;
+- cadastro e desativação de vantagens;
+- resgate com débito atômico, idempotência e cupom único;
+- catálogo e apresentação do cupom na interface.
 
-### Fora do escopo desta Sprint 3
+### Limitações conhecidas
 
 - autenticação e controle de acesso por perfil;
-- cadastro e gerenciamento de professores;
-- distribuição de moedas aos alunos;
-- consulta de saldo e extratos;
-- cadastro de vantagens por empresas parceiras;
-- resgate de benefícios;
-- geração e validação de cupons;
+- validação presencial do uso do cupom;
 - notificações por e-mail;
 - crédito semestral de moedas aos professores.
 
-> Professores, autenticação, transações, moedas, vantagens e resgates não fazem parte desta entrega. Os CRUDs são destinados ao desenvolvimento e à avaliação acadêmica e não devem ser publicados sem autenticação e autorização.
+> Os fluxos financeiros foram implementados exclusivamente para demonstração local. Como ainda não há autenticação ou autorização, a API não deve ser publicada nem usada com dados reais.
 
 ## Tecnologias
 
@@ -233,6 +234,15 @@ Acesse a aplicação em `http://localhost:5173`.
 | `DELETE` | `/api/empresas/{id}` | Exclui uma empresa |
 | `GET` | `/api/instituicoes` | Lista instituições de ensino |
 | `GET` | `/api/dashboard/indicadores` | Retorna totais de alunos e empresas |
+| `GET/POST` | `/api/professores` | Lista e cadastra professores |
+| `GET/PUT/DELETE` | `/api/professores/{id}` | Consulta, atualiza e exclui professor sem histórico |
+| `POST` | `/api/moedas/transferencias` | Distribui moedas de professor para aluno |
+| `GET` | `/api/professores/{id}/extrato` | Extrato do professor |
+| `GET` | `/api/alunos/{id}/extrato` | Extrato do aluno |
+| `GET/POST` | `/api/vantagens` | Lista e cadastra vantagens |
+| `GET/PUT` | `/api/vantagens/{id}` | Consulta e atualiza vantagem |
+| `POST` | `/api/vantagens/{id}/desativar` | Desativa vantagem |
+| `POST` | `/api/resgates` | Resgata vantagem e gera cupom |
 
 ## Modelo de dados
 
@@ -313,4 +323,4 @@ npm run build
 
 ## Estado atual
 
-A **Sprint 3 está implementada** no escopo do Lab03S03: CRUDs finais de alunos e empresas parceiras, persistência, arquitetura, testes e material de apresentação. Funcionalidades de autenticação, professores e operações com moedas permanecem fora do escopo desta entrega.
+A base da **Sprint 3 permanece funcional** e foi estendida com professores, transferências, extratos, vantagens, resgates e cupons para demonstração local. Autenticação, autorização, validação presencial de cupons, crédito semestral e e-mails permanecem pendentes.

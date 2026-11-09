@@ -167,7 +167,7 @@ PostgreSQL no Neon
 - o banco não é acessado diretamente pelo navegador;
 - Pydantic e Zod validam fronteiras diferentes;
 - restrições do PostgreSQL permanecem como proteção definitiva;
-- autenticação e operações com moedas estão fora do escopo atual.
+- autenticação e autorização continuam fora do escopo; moedas são demonstradas somente em ambiente local.
 
 ### Apoio visual
 
@@ -952,7 +952,7 @@ A suíte pytest cobre:
 Resultado verificado:
 
 ```text
-10 passed
+19 passed
 ```
 
 ### Isolamento do banco de testes
@@ -1151,7 +1151,7 @@ Encerrar a apresentação retomando o que foi entregue, como a qualidade foi ver
 >
 > Os resultados foram verificados por testes backend e frontend e pelo build de produção. Nenhuma operação foi executada no banco remoto durante esta entrega.
 >
-> Professores, autenticação, transações, distribuição de moedas, vantagens e resgates permanecem fora do escopo. Essas funcionalidades poderão evoluir posteriormente sobre a base cadastral e arquitetural entregue nesta sprint.
+> Professores, distribuição de moedas, vantagens e resgates foram adicionados como fluxo local de demonstração. Autenticação, autorização, e-mails e validação presencial de cupons permanecem pendentes.
 
 ### Resultados da Sprint 3
 
@@ -1169,7 +1169,7 @@ Encerrar a apresentação retomando o que foi entregue, como a qualidade foi ver
 ### Evidências
 
 ```text
-Backend: 10 testes aprovados
+Backend: 19 testes aprovados
 Frontend: 4 testes aprovados
 Build: TypeScript e Vite concluídos
 Neon: nenhuma operação remota executada

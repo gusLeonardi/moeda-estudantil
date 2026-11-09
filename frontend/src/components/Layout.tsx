@@ -1,8 +1,8 @@
-import { Building2, GraduationCap, Home, Menu, X } from 'lucide-react';
+import { Building2, Gift, GraduationCap, Home, Menu, School, ShoppingBag, X } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 
-const links = [['/', 'Visão geral', Home], ['/alunos', 'Alunos', GraduationCap], ['/empresas', 'Empresas', Building2]] as const;
+const links = [['/', 'Visão geral', Home], ['/alunos', 'Alunos', GraduationCap], ['/professores', 'Professores', School], ['/empresas', 'Empresas', Building2], ['/vantagens', 'Gerenciar vantagens', Gift], ['/catalogo', 'Catálogo e resgates', ShoppingBag]] as const;
 
 export function Layout() {
   const [open, setOpen] = useState(false);
@@ -13,7 +13,7 @@ export function Layout() {
         <button className="lg:hidden" onClick={() => setOpen(false)} aria-label="Fechar menu"><X /></button>
       </div>
       <nav aria-label="Navegação principal" className="space-y-2 p-4">{links.map(([to, label, Icon]) => <NavLink key={to} to={to} end={to === '/'} onClick={() => setOpen(false)} className={({ isActive }) => `flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition ${isActive ? 'bg-white text-navy' : 'text-blue-100 hover:bg-white/10'}`}><Icon size={19} />{label}</NavLink>)}</nav>
-      <div className="absolute bottom-6 left-6 right-6 rounded-2xl bg-white/5 p-4 text-sm text-blue-100"><b className="mb-1 block text-white">Sprint 3</b>CRUDs finais e persistência.</div>
+      <div className="absolute bottom-4 left-6 right-6 rounded-2xl bg-white/5 p-3 text-xs text-blue-100"><b className="mb-1 block text-white">Demonstração local</b>Sem autenticação ou controle de perfis.</div>
     </aside>
     {open && <button className="fixed inset-0 z-30 bg-slate-950/40 lg:hidden" onClick={() => setOpen(false)} aria-label="Fechar menu" />}
     <main className="min-w-0 flex-1"><header className="flex h-20 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-8"><button onClick={() => setOpen(true)} className="rounded-lg p-2 lg:hidden" aria-label="Abrir menu"><Menu /></button><p className="hidden text-sm text-slate-500 sm:block">PUC Minas · Projeto de Software</p><span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">Ambiente acadêmico</span></header><div className="mx-auto max-w-7xl p-4 sm:p-8"><Outlet /></div></main>

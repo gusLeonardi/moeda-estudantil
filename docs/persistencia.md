@@ -206,6 +206,19 @@ Essa estratégia valida persistência após criação e atualização, exclusão
 
 SQLite não substitui uma validação de compatibilidade com PostgreSQL para recursos específicos do banco, mas é adequado à suíte rápida atual. Migrações devem ser verificadas separadamente em PostgreSQL descartável antes de uso remoto.
 
+## Extensão do fluxo de moedas
+
+As migrações incrementais preservam todas as tabelas e IDs anteriores:
+
+- `20261109_0002` adiciona `professores` e `transferencias_moedas` e amplia o tipo de usuário;
+- `20261109_0003` adiciona `vantagens` e `resgates_vantagens`.
+
+`professores.saldo` inicia em `1000.00` e possui check não negativo. Transferências exigem quantidade positiva. Vantagens exigem custo positivo. Resgates guardam o custo histórico, cupom único e chave de idempotência única.
+
+Os débitos de professor e aluno são condicionais e atômicos. A atualização somente ocorre quando o saldo atual é suficiente, protegendo contra concorrência sem depender de cálculos realizados apenas em memória.
+
+O modelo completo desta extensão está em [modelo-er-moedas.mmd](modelo-er-moedas.mmd). O modelo cadastral anterior foi preservado em [modelo-er.mmd](modelo-er.mmd).
+
 ## Operação segura
 
 ### Permitido no desenvolvimento local

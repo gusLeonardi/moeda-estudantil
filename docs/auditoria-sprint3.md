@@ -32,7 +32,7 @@ Foram analisados README, estrutura das aplicações, models SQLAlchemy, schemas 
 
 ## Verificações executadas
 
-- backend: `10 passed` com pytest e SQLite isolado;
+- backend: `19 passed` com pytest e SQLite isolado, incluindo o fluxo de moedas;
 - frontend: `4 passed` com Vitest;
 - produção: TypeScript e build Vite concluídos;
 - banco remoto: nenhuma operação executada.

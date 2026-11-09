@@ -1,4 +1,4 @@
-import { ArrowRight, Building2, GraduationCap, Sparkles, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Building2, Gift, GraduationCap, School, Sparkles, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageHeader, State } from '../components/UI';
 import { useAsync } from '../hooks/useAsync';
@@ -11,6 +11,8 @@ export function Dashboard() {
   const cards: DashboardCard[] = [
     { title: 'Alunos', count: indicators.data?.total_alunos, icon: GraduationCap, description: 'Gerencie perfis acadêmicos, cursos e instituições.', to: '/alunos' },
     { title: 'Empresas parceiras', count: indicators.data?.total_empresas, icon: Building2, description: 'Organize a rede de empresas parceiras.', to: '/empresas' },
+    { title: 'Professores', count: indicators.data?.total_professores, icon: School, description: 'Distribua moedas e acompanhe extratos.', to: '/professores' },
+    { title: 'Vantagens', count: indicators.data?.total_vantagens, icon: Gift, description: 'Gerencie benefícios e resgates com cupom.', to: '/vantagens' },
   ];
   return <>
     <PageHeader eyebrow="Sistema de reconhecimento" title="Valorize quem transforma o campus" description="Gerencie a comunidade que participa do ecossistema de reconhecimento estudantil da PUC Minas." />

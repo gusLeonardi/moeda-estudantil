@@ -51,7 +51,12 @@ def test_validacoes_e_campos_protegidos(client, endereco):
 
 
 def test_indicadores_dashboard(client, endereco):
-    assert client.get("/api/dashboard/indicadores").json() == {"total_alunos": 0, "total_empresas": 0}
+    assert client.get("/api/dashboard/indicadores").json() == {
+        "total_alunos": 0,
+        "total_empresas": 0,
+        "total_professores": 0,
+        "total_vantagens": 0,
+    }
     client.post("/api/alunos", json=aluno_payload(endereco))
     assert client.get("/api/dashboard/indicadores").json()["total_alunos"] == 1
 

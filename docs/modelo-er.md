@@ -18,6 +18,6 @@ Os documentos `Lab03S01-modelagem.pdf` (8 páginas) e `LABORATORIO_3_LAB_DESENVO
 
 A modelagem original prevê login/senha para todos os perfis. Nesta versão inicial, `senha_hash` reserva a persistência segura, mas login e autenticação foram conscientemente adiados: expor um login sem rotas protegidas criaria uma falsa sensação de segurança. O campo deverá se tornar obrigatório quando OAuth2/JWT, hash forte e autorização por perfil forem entregues.
 
-## Limite da Sprint 3
+## Evolução posterior
 
-`Professor`, `Vantagem`, `Transacao`, `TransacaoEnvio` e `TransacaoResgate` permanecem fora do escopo desta entrega. Não foram criadas tabelas vazias nem regras fictícias para envio, extrato, resgate ou crédito semestral. `senha_hash` apenas reserva a estrutura de autenticação; nenhum login foi simulado.
+Este arquivo preserva o modelo cadastral consolidado na Sprint 3. A extensão implementada posteriormente para professores, transferências, vantagens e resgates está documentada separadamente em [modelo-er-moedas.mmd](modelo-er-moedas.mmd), preservando a versão anterior. Autenticação continua não implementada.

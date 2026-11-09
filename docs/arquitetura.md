@@ -77,9 +77,16 @@ Os recursos da Sprint 3 são:
 - `/api/empresas` e `/api/empresas/{id}`;
 - `/api/instituicoes`;
 - `/api/dashboard/indicadores`.
+- `/api/professores` e `/api/professores/{id}`;
+- `/api/moedas/transferencias`;
+- `/api/professores/{id}/extrato` e `/api/alunos/{id}/extrato`;
+- `/api/vantagens` e `/api/vantagens/{id}`;
+- `/api/resgates`.
 
 ## Segurança e limites
 
 Credenciais ficam em `.env`, ignorado pelo Git. CORS aceita somente origens configuradas. A URL do banco não aparece em respostas ou logs da aplicação. Os CRUDs ainda não possuem autenticação e devem permanecer em ambiente acadêmico controlado.
 
-Professores, autenticação, transações, moedas, vantagens e resgates estão fora desta Sprint 3. O campo `senha_hash` apenas preserva compatibilidade com a modelagem anterior e não representa um fluxo de login implementado.
+Professores, transferências, vantagens e resgates foram adicionados como fluxo administrativo de demonstração. Autenticação e autorização continuam ausentes; portanto, esses endpoints financeiros não devem ser publicados. O campo `senha_hash` não representa um fluxo de login implementado.
+
+Débitos usam atualizações condicionais no banco (`saldo >= valor`) para impedir saldo negativo sob concorrência. Services coordenam `commit` e `rollback`, enquanto chaves de idempotência impedem o processamento repetido de um resgate.

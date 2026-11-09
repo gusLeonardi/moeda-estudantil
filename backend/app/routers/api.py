@@ -6,7 +6,19 @@ from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.schemas.aluno import AlunoCreate, AlunoResponse, AlunoUpdate, InstituicaoResumo
 from app.schemas.empresa import EmpresaCreate, EmpresaResponse, EmpresaUpdate
+from app.schemas.professor import (
+    ExtratoAlunoResponse,
+    ExtratoProfessorResponse,
+    ProfessorCreate,
+    ProfessorResponse,
+    ProfessorUpdate,
+    TransferenciaCreate,
+    TransferenciaResponse,
+)
+from app.schemas.vantagem import ResgateCreate, ResgateResponse, VantagemCreate, VantagemResponse, VantagemUpdate
 from app.services.crud import AlunoService, DashboardService, EmpresaService, InstituicaoService
+from app.services.moedas import MoedasService, ProfessorService
+from app.services.vantagens import ResgateService, VantagemService
 
 router = APIRouter()
 Db = Annotated[Session, Depends(get_db)]
@@ -43,3 +55,78 @@ def listar_instituicoes(db: Db): return InstituicaoService(db).list()
 @router.get("/dashboard/indicadores", response_model=dict[str, int])
 def obter_indicadores(db: Db):
     return DashboardService(db).indicators()
+
+
+@router.get("/professores", response_model=list[ProfessorResponse])
+def listar_professores(db: Db, busca: str | None = Query(None, max_length=100)):
+    return ProfessorService(db).list(busca)
+
+
+@router.get("/professores/{entity_id}", response_model=ProfessorResponse)
+def obter_professor(entity_id: int, db: Db):
+    return ProfessorService(db).get(entity_id)
+
+
+@router.post("/professores", response_model=ProfessorResponse, status_code=status.HTTP_201_CREATED)
+def criar_professor(data: ProfessorCreate, db: Db):
+    return ProfessorService(db).create(data)
+
+
+@router.put("/professores/{entity_id}", response_model=ProfessorResponse)
+def atualizar_professor(entity_id: int, data: ProfessorUpdate, db: Db):
+    return ProfessorService(db).update(entity_id, data)
+
+
+@router.delete("/professores/{entity_id}", status_code=status.HTTP_204_NO_CONTENT)
+def excluir_professor(entity_id: int, db: Db):
+    ProfessorService(db).delete(entity_id)
+    return Response(status_code=204)
+
+
+@router.post("/moedas/transferencias", response_model=TransferenciaResponse, status_code=status.HTTP_201_CREATED)
+def transferir_moedas(data: TransferenciaCreate, db: Db):
+    return MoedasService(db).transferir(data)
+
+
+@router.get("/professores/{professor_id}/extrato", response_model=ExtratoProfessorResponse)
+def extrato_professor(professor_id: int, db: Db):
+    return MoedasService(db).extrato_professor(professor_id)
+
+
+@router.get("/alunos/{aluno_id}/extrato", response_model=ExtratoAlunoResponse)
+def extrato_aluno(aluno_id: int, db: Db):
+    return MoedasService(db).extrato_aluno(aluno_id)
+
+
+@router.get("/vantagens", response_model=list[VantagemResponse])
+def listar_vantagens(
+    db: Db,
+    apenas_ativas: bool = Query(False),
+    empresa_id: int | None = Query(None, gt=0),
+):
+    return VantagemService(db).list(apenas_ativas, empresa_id)
+
+
+@router.get("/vantagens/{entity_id}", response_model=VantagemResponse)
+def obter_vantagem(entity_id: int, db: Db):
+    return VantagemService(db).get(entity_id)
+
+
+@router.post("/vantagens", response_model=VantagemResponse, status_code=status.HTTP_201_CREATED)
+def criar_vantagem(data: VantagemCreate, db: Db):
+    return VantagemService(db).create(data)
+
+
+@router.put("/vantagens/{entity_id}", response_model=VantagemResponse)
+def atualizar_vantagem(entity_id: int, data: VantagemUpdate, db: Db):
+    return VantagemService(db).update(entity_id, data)
+
+
+@router.post("/vantagens/{entity_id}/desativar", response_model=VantagemResponse)
+def desativar_vantagem(entity_id: int, db: Db):
+    return VantagemService(db).desativar(entity_id)
+
+
+@router.post("/resgates", response_model=ResgateResponse, status_code=status.HTTP_201_CREATED)
+def resgatar_vantagem(data: ResgateCreate, db: Db):
+    return ResgateService(db).create(data)
