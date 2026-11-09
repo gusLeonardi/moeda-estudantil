@@ -1,3 +1,4 @@
+
 from decimal import Decimal
 from uuid import uuid4
 
@@ -7,8 +8,18 @@ from sqlalchemy.orm import Session
 from app.models import Vantagem
 from app.repositories.moedas import MoedasRepository
 from app.repositories.vantagens import VantagemRepository
-from app.schemas.vantagem import ResgateCreate, ResgateResponse, VantagemCreate, VantagemResponse, VantagemUpdate
+from app.schemas.vantagem import (
+    CupomConferenciaCreate,
+    CupomConferenciaResponse,
+    CupomValidacaoResponse,
+    ResgateCreate,
+    ResgateResponse,
+    VantagemCreate,
+    VantagemResponse,
+    VantagemUpdate,
+)
 
+from .email_service import notificar_resgate
 from .errors import ConflictError, NotFoundError
 
 
@@ -36,6 +47,22 @@ def resgate_response(item) -> ResgateResponse:
         custo=Decimal(item.custo).quantize(Decimal("0.01")),
         codigo_cupom=item.codigo_cupom,
         criado_em=item.criado_em,
+        utilizado_em=item.utilizado_em,
+    )
+
+
+def cupom_response(item) -> CupomConferenciaResponse:
+    return CupomConferenciaResponse(
+        id=item.id,
+        codigo_cupom=item.codigo_cupom,
+        empresa_id=item.empresa_id,
+        aluno_id=item.aluno_id,
+        vantagem_id=item.vantagem_id,
+        vantagem_nome=item.vantagem.nome,
+        custo=Decimal(item.custo).quantize(Decimal("0.01")),
+        criado_em=item.criado_em,
+        utilizado_em=item.utilizado_em,
+        utilizado=item.utilizado_em is not None,
     )
 
 
@@ -44,48 +71,86 @@ class VantagemService:
         self.db = db
         self.repo = VantagemRepository(db)
 
-    def list(self, apenas_ativas: bool = False, empresa_id: int | None = None) -> list[VantagemResponse]:
-        return [vantagem_response(item) for item in self.repo.list(apenas_ativas, empresa_id)]
+    def list(
+        self,
+        apenas_ativas: bool = False,
+        empresa_id: int | None = None,
+    ) -> list[VantagemResponse]:
+        return [
+            vantagem_response(item)
+            for item in self.repo.list(
+                apenas_ativas,
+                empresa_id,
+            )
+        ]
 
     def get(self, entity_id: int) -> VantagemResponse:
         item = self.repo.get(entity_id)
+
         if not item:
             raise NotFoundError("Vantagem não encontrada")
+
         return vantagem_response(item)
 
     def create(self, data: VantagemCreate) -> VantagemResponse:
         if not self.repo.empresa_exists(data.empresa_id):
-            raise NotFoundError("Empresa parceira não encontrada")
+            raise NotFoundError(
+                "Empresa parceira não encontrada"
+            )
+
         item = Vantagem(
             empresa_id=data.empresa_id,
             nome=data.nome.strip(),
             descricao=data.descricao.strip(),
             custo=Decimal(data.custo),
-            imagem_url=data.imagem_url.strip() if data.imagem_url else None,
+            imagem_url=(
+                data.imagem_url.strip()
+                if data.imagem_url
+                else None
+            ),
             ativa=data.ativa,
         )
+
         self.repo.add(item)
         self._commit()
+
         return self.get(item.id)
 
-    def update(self, entity_id: int, data: VantagemUpdate) -> VantagemResponse:
+    def update(
+        self,
+        entity_id: int,
+        data: VantagemUpdate,
+    ) -> VantagemResponse:
         item = self.repo.get(entity_id)
+
         if not item:
             raise NotFoundError("Vantagem não encontrada")
+
         item.nome = data.nome.strip()
         item.descricao = data.descricao.strip()
         item.custo = Decimal(data.custo)
-        item.imagem_url = data.imagem_url.strip() if data.imagem_url else None
+
+        item.imagem_url = (
+            data.imagem_url.strip()
+            if data.imagem_url
+            else None
+        )
+
         item.ativa = data.ativa
+
         self._commit()
+
         return self.get(entity_id)
 
     def desativar(self, entity_id: int) -> VantagemResponse:
         item = self.repo.get(entity_id)
+
         if not item:
             raise NotFoundError("Vantagem não encontrada")
+
         item.ativa = False
         self._commit()
+
         return self.get(entity_id)
 
     def _commit(self) -> None:
@@ -93,7 +158,9 @@ class VantagemService:
             self.db.commit()
         except IntegrityError as exc:
             self.db.rollback()
-            raise ConflictError("Não foi possível salvar a vantagem") from exc
+            raise ConflictError(
+                "Não foi possível salvar a vantagem"
+            ) from exc
 
 
 class ResgateService:
@@ -103,34 +170,159 @@ class ResgateService:
         self.moedas = MoedasRepository(db)
 
     def create(self, data: ResgateCreate) -> ResgateResponse:
-        existing = self.repo.resgate_by_key(data.idempotency_key)
+        existing = self.repo.resgate_by_key(
+            data.idempotency_key
+        )
+
         if existing:
-            if existing.aluno_id != data.aluno_id or existing.vantagem_id != data.vantagem_id:
-                raise ConflictError("Chave de idempotência já utilizada em outro pedido")
+            if (
+                existing.aluno_id != data.aluno_id
+                or existing.vantagem_id != data.vantagem_id
+            ):
+                raise ConflictError(
+                    "Chave de idempotência já utilizada em outro pedido"
+                )
+
             return resgate_response(existing)
+
         aluno = self.moedas.get_aluno_user(data.aluno_id)
+
         if not aluno:
             raise NotFoundError("Aluno não encontrado")
+
         vantagem = self.repo.get(data.vantagem_id)
+
         if not vantagem:
             raise NotFoundError("Vantagem não encontrada")
+
         if not vantagem.ativa:
             raise ConflictError("Vantagem inativa")
+
         codigo = uuid4().hex[:12].upper()
+
         try:
-            item = self.repo.resgatar(data.aluno_id, vantagem, data.idempotency_key, codigo)
+            item = self.repo.resgatar(
+                data.aluno_id,
+                vantagem,
+                data.idempotency_key,
+                codigo,
+            )
+
             if item is None:
                 self.db.rollback()
                 raise ConflictError("Saldo insuficiente")
+
             item_id = item.id
             self.db.commit()
+
         except IntegrityError as exc:
             self.db.rollback()
-            existing = self.repo.resgate_by_key(data.idempotency_key)
+
+            existing = self.repo.resgate_by_key(
+                data.idempotency_key
+            )
+
             if existing:
-                if existing.aluno_id != data.aluno_id or existing.vantagem_id != data.vantagem_id:
-                    raise ConflictError("Chave de idempotência já utilizada em outro pedido")
+                if (
+                    existing.aluno_id != data.aluno_id
+                    or existing.vantagem_id != data.vantagem_id
+                ):
+                    raise ConflictError(
+                        "Chave de idempotência já utilizada em outro pedido"
+                    )
+
                 return resgate_response(existing)
-            raise ConflictError("Não foi possível concluir o resgate") from exc
+
+            raise ConflictError(
+                "Não foi possível concluir o resgate"
+            ) from exc
+
         persisted = self.repo.get_resgate(item_id)
-        return resgate_response(persisted)
+        resposta = resgate_response(persisted)
+
+        # Envia o mesmo cupom ao aluno e à empresa.
+        # O resgate já está confirmado no banco.
+        notificar_resgate(
+            email_aluno=persisted.aluno.usuario.email,
+            nome_aluno=persisted.aluno.usuario.nome,
+            email_empresa=persisted.empresa.usuario.email,
+            nome_empresa=persisted.empresa.usuario.nome,
+            nome_vantagem=persisted.vantagem.nome,
+            codigo_cupom=persisted.codigo_cupom,
+            custo=Decimal(persisted.custo),
+        )
+
+        return resposta
+
+
+class CupomService:
+    def __init__(self, db: Session):
+        self.db = db
+        self.repo = VantagemRepository(db)
+
+    def consultar(
+        self,
+        data: CupomConferenciaCreate,
+    ) -> CupomConferenciaResponse:
+        item = self.repo.get_cupom(
+            data.codigo_cupom,
+            data.empresa_id,
+        )
+
+        if not item:
+            raise NotFoundError(
+                "Cupom não encontrado para esta empresa"
+            )
+
+        return cupom_response(item)
+
+    def validar(
+        self,
+        data: CupomConferenciaCreate,
+    ) -> CupomValidacaoResponse:
+        item = self.repo.get_cupom(
+            data.codigo_cupom,
+            data.empresa_id,
+        )
+
+        if not item:
+            raise NotFoundError(
+                "Cupom não encontrado para esta empresa"
+            )
+
+        if item.utilizado_em is not None:
+            raise ConflictError(
+                "Este cupom já foi utilizado"
+            )
+
+        try:
+            resgate_id = self.repo.marcar_cupom_utilizado(
+                data.codigo_cupom,
+                data.empresa_id,
+            )
+
+            if resgate_id is None:
+                self.db.rollback()
+                raise ConflictError(
+                    "Este cupom já foi utilizado"
+                )
+
+            self.db.commit()
+
+        except Exception:
+            self.db.rollback()
+            raise
+
+        persisted = self.repo.get_resgate(resgate_id)
+
+        if persisted is None:
+            raise NotFoundError(
+                "Cupom não encontrado após a validação"
+            )
+
+        resultado = cupom_response(persisted)
+
+        return CupomValidacaoResponse(
+            **resultado.model_dump(),
+            mensagem="Cupom validado e utilizado com sucesso",
+        )
