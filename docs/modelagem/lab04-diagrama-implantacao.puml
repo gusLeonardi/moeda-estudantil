@@ -1,40 +1,34 @@
 @startuml
-title Conquista — Diagrama de Implantação (planejado)
-skinparam componentStyle uml2
+title Conquista - Diagrama de Implantacao (arquitetura planejada)
 left to right direction
+skinparam componentStyle uml2
+skinparam shadowing false
 
-node "Dispositivo do usuário\n<<device>>" as device {
-  node "Navegador" as browser {
-    artifact "Aplicação web\nReact + TypeScript" as webclient
+node "Dispositivo do usuario" <<device>> as device {
+  node "Navegador" <<executionEnvironment>> as browser {
+    artifact "SPA React + TypeScript\nVite: frontend/dist" as spa
   }
 }
-
-cloud "Internet" as internet
-
-node "Vercel\n<<planned>>" as vercel {
-  artifact "Build estático\nfrontend/dist" as frontend
+node "Vercel\nPLANEJADO" <<executionEnvironment>> as vercel {
+  artifact "Build estatico React/Vite\nrotas SPA via vercel.json" as web
 }
-
-node "Render\n<<planned>>" as render {
-  artifact "API Conquista\nFastAPI + Uvicorn" as api
-  artifact "Alembic\ncomando manual de migration" as migrations
+node "Render\nPLANEJADO" <<executionEnvironment>> as render {
+  artifact "FastAPI\nUvicorn + proxy headers" as api
+  artifact "Alembic CLI\nupgrade controlado, fora do start" as alembic
 }
-
-database "Neon\n<<planned>>" as neon {
-  artifact "PostgreSQL" as postgres
+database "Neon\nPLANEJADO" <<executionEnvironment>> as neon {
+  artifact "PostgreSQL\nDATABASE_URL com TLS" as db
 }
-
-cloud "Provedor SMTP\n<<optional; planned>>" as smtp
-
-webclient --> frontend : HTTPS
-browser --> api : HTTPS / JSON + Bearer JWT
-api --> postgres : PostgreSQL TLS\nDATABASE_URL (sslmode=require)
-api --> smtp : SMTP STARTTLS/SSL\nquando configurado
-migrations ..> postgres : executar após aprovação\ne fora do start command
-
-note bottom
-  Os nós Vercel, Render e Neon representam a arquitetura pretendida.
-  Nenhuma URL pública foi verificada como implantada nesta entrega.
-  O estado real das plataformas depende de configuração e acesso externo.
+node "Provedor SMTP configurado\nPLANEJADO / opcional" <<executionEnvironment>> as mail {
+  artifact "SMTP autenticado\nSTARTTLS ou SSL" as smtp
+}
+browser --> vercel : HTTPS / SPA
+browser --> api : HTTPS / JSON / Bearer JWT
+api --> db : PostgreSQL TLS\nDATABASE_URL
+api --> smtp : SMTP autenticado\nativacao, notificacoes
+alembic ..> db : conexao TLS\naprovacao e execucao manual
+note bottom of vercel
+  Vercel, Render, Neon e SMTP sao destinos de implantacao planejados.
+  Nenhuma URL publica foi verificada; este diagrama nao declara deploy concluido.
 end note
 @enduml

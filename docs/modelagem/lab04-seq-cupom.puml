@@ -1,30 +1,50 @@
-﻿@startuml
-title Coupon validation - Conquista
-actor Company
-boundary Frontend
-control Router
+@startuml
+title Consulta e validacao de cupom pela empresa proprietaria
+autonumber
+actor Empresa
+boundary "Frontend React" as UI
+control "API FastAPI / Router" as API
 control AuthService
-control CouponService
-entity Repository
-database PostgreSQL
-Company -> Frontend: enter coupon code
-Frontend -> Router: POST /cupons/consultar + JWT
-Router -> AuthService: require EMPRESA and validate JWT
-Router -> CouponService: consult(company id from JWT)
-CouponService -> Repository: find coupon owned by company
-Repository -> PostgreSQL: SELECT coupon and redemption
-PostgreSQL --> Repository: coupon state
-Repository --> CouponService: coupon state
-CouponService --> Router: consultation result
-Router --> Frontend: coupon details
-Company -> Frontend: confirm in-person redemption
-Frontend -> Router: POST /cupons/validar + JWT
-Router -> AuthService: require EMPRESA and validate JWT
-Router -> CouponService: validate(company id from JWT)
-CouponService -> Repository: conditional mark as used
-Repository -> PostgreSQL: UPDATE once and commit
-PostgreSQL --> Repository: commit or conflict
-Repository --> CouponService: final state
-CouponService --> Router: validation result
-Router --> Frontend: valid or already used
+control CupomService
+entity VantagemRepository
+database PostgreSQL as DB
+
+Empresa -> UI: Informa codigo do cupom
+UI -> API: POST /cupons/consultar + JWT (somente codigo)
+API -> AuthService: Valida assinatura, expiracao e perfil EMPRESA
+alt JWT invalido ou perfil incorreto
+  API --> UI: 401/403
+else Empresa autenticada
+  API -> CupomService: Consultar com empresa_id do JWT
+  CupomService -> VantagemRepository: Busca resgate + vantagem proprietaria
+  VantagemRepository -> DB: SELECT com propriedade da empresa
+  alt Cupom pertence a empresa autenticada
+    DB --> VantagemRepository: Estado do cupom
+    VantagemRepository --> CupomService: Dados do cupom
+    CupomService --> UI: Resultado da consulta
+  else Inexistente ou pertence a outra empresa
+    DB --> VantagemRepository: Sem resultado
+    API --> UI: 404 (sem revelar proprietario)
+  end
+
+  opt Validar cupom proprio ainda nao utilizado
+    Empresa -> UI: Confirma utilizacao
+    UI -> API: POST /cupons/validar + JWT (somente codigo)
+    API -> AuthService: Exige EMPRESA; identidade do JWT
+    API -> CupomService: validar(codigo, empresa_id do JWT)
+    CupomService -> VantagemRepository: UPDATE condicional com proprietario
+    VantagemRepository -> DB: Marca utilizado uma unica vez; commit
+    alt Cupom proprio nao utilizado
+      DB --> VantagemRepository: Uma linha atualizada
+      CupomService --> UI: Cupom validado
+    else Ja usado, inexistente ou alheio
+      DB --> VantagemRepository: Sem atualizacao
+      API --> UI: 404/409; cupom nao alterado
+    end
+  end
+end
+note over API,DB
+  A API nao aceita empresa_id do navegador.
+  A consulta e a validacao sao limitadas a cupons das vantagens da empresa.
+end note
 @enduml

@@ -92,14 +92,26 @@ class VantagemService:
 
         return vantagem_response(item)
 
-    def create(self, data: VantagemCreate) -> VantagemResponse:
-        if not self.repo.empresa_exists(data.empresa_id):
+    def get_for_company(self, entity_id: int, empresa_id: int) -> VantagemResponse:
+        item = self.repo.get_owned(entity_id, empresa_id)
+        if not item:
+            raise NotFoundError("Vantagem não encontrada")
+        return vantagem_response(item)
+
+    def get_for_catalog(self, entity_id: int) -> VantagemResponse:
+        item = self.repo.get_active(entity_id)
+        if not item:
+            raise NotFoundError("Vantagem não encontrada")
+        return vantagem_response(item)
+
+    def create(self, data: VantagemCreate, empresa_id: int) -> VantagemResponse:
+        if not self.repo.empresa_exists(empresa_id):
             raise NotFoundError(
                 "Empresa parceira não encontrada"
             )
 
         item = Vantagem(
-            empresa_id=data.empresa_id,
+            empresa_id=empresa_id,
             nome=data.nome.strip(),
             descricao=data.descricao.strip(),
             custo=Decimal(data.custo),
@@ -120,8 +132,9 @@ class VantagemService:
         self,
         entity_id: int,
         data: VantagemUpdate,
+        empresa_id: int,
     ) -> VantagemResponse:
-        item = self.repo.get(entity_id)
+        item = self.repo.get_owned(entity_id, empresa_id)
 
         if not item:
             raise NotFoundError("Vantagem não encontrada")
@@ -140,18 +153,33 @@ class VantagemService:
 
         self._commit()
 
-        return self.get(entity_id)
+        return self.get_for_company(entity_id, empresa_id)
 
-    def desativar(self, entity_id: int) -> VantagemResponse:
-        item = self.repo.get(entity_id)
+    def ativar(self, entity_id: int, empresa_id: int) -> VantagemResponse:
+        return self._set_status(entity_id, empresa_id, True)
+
+    def desativar(self, entity_id: int, empresa_id: int) -> VantagemResponse:
+        return self._set_status(entity_id, empresa_id, False)
+
+    def _set_status(self, entity_id: int, empresa_id: int, active: bool) -> VantagemResponse:
+        item = self.repo.get_owned(entity_id, empresa_id)
 
         if not item:
             raise NotFoundError("Vantagem não encontrada")
 
-        item.ativa = False
+        item.ativa = active
         self._commit()
 
-        return self.get(entity_id)
+        return self.get_for_company(entity_id, empresa_id)
+
+    def delete(self, entity_id: int, empresa_id: int) -> None:
+        item = self.repo.get_owned(entity_id, empresa_id)
+        if not item:
+            raise NotFoundError("Vantagem não encontrada")
+        if self.repo.has_resgates(entity_id):
+            raise ConflictError("Vantagens com resgates não podem ser excluídas; desative-a para preservar o histórico.")
+        self.db.delete(item)
+        self._commit()
 
     def _commit(self) -> None:
         try:
@@ -263,10 +291,11 @@ class CupomService:
     def consultar(
         self,
         data: CupomConferenciaCreate,
+        empresa_id: int,
     ) -> CupomConferenciaResponse:
         item = self.repo.get_cupom(
             data.codigo_cupom,
-            data.empresa_id,
+            empresa_id,
         )
 
         if not item:
@@ -279,10 +308,11 @@ class CupomService:
     def validar(
         self,
         data: CupomConferenciaCreate,
+        empresa_id: int,
     ) -> CupomValidacaoResponse:
         item = self.repo.get_cupom(
             data.codigo_cupom,
-            data.empresa_id,
+            empresa_id,
         )
 
         if not item:
@@ -298,7 +328,7 @@ class CupomService:
         try:
             resgate_id = self.repo.marcar_cupom_utilizado(
                 data.codigo_cupom,
-                data.empresa_id,
+                empresa_id,
             )
 
             if resgate_id is None:

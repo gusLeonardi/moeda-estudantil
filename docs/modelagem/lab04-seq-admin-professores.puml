@@ -1,0 +1,59 @@
+@startuml
+title Gerenciamento administrativo de professores
+autonumber
+actor Administrador
+boundary "Frontend Admin React" as UI
+control "Admin Auth Router" as Login
+control "Admin Professor Router" as API
+control ProfessorService
+control ActivationService
+database PostgreSQL as DB
+participant "SMTP configurado" as SMTP
+
+Administrador -> UI: Informa credencial administrativa
+UI -> Login: POST /admin/auth/login
+Login -> DB: Aplica limite de tentativas por IP/usuario
+Login -> Login: Confere ADMIN_UI_USERNAME e hash Argon2
+alt Credenciais validas e dentro do limite
+  Login --> UI: JWT ADMIN (15 min)
+  note over UI
+    Token fica em sessionStorage.
+    ADMIN_CRON_TOKEN permanece somente no servidor.
+  end note
+else Invalidas ou limitadas
+  Login --> UI: 401/429
+end
+
+opt Sessao ADMIN autenticada
+  Administrador -> UI: Lista, pesquisa, consulta ou edita professor
+  UI -> API: GET/PUT /admin/professores + JWT
+  API -> API: Valida JWT e exige role ADMIN
+  API -> ProfessorService: list/get/update
+  ProfessorService -> DB: Le e atualiza cadastro/instituicao/endereco
+  API --> UI: Perfil sanitizado e estado de ativacao
+
+  Administrador -> UI: Pre-cadastra professor (sem senha)
+  UI -> API: POST /admin/professores + dados
+  API -> API: Exige ADMIN e limita provisionamento
+  API -> ProfessorService: create_unactivated
+  ProfessorService -> DB: Valida CPF/e-mail/instituicao
+  ProfessorService -> DB: Persiste usuario sem senha, perfil e credito inicial
+  API -> ActivationService: Solicita convite para conta pendente
+  ActivationService -> DB: Armazena hash do token e expiracao
+  ActivationService -> SMTP: Envia token ao e-mail cadastrado
+  alt Entrega concluida
+    API --> UI: 201, activation_sent=true
+  else SMTP indisponivel
+    ActivationService -> DB: Invalida token nao entregue
+    API --> UI: 201, activation_sent=false
+  end
+
+  Administrador -> UI: Reenvia convite pendente
+  UI -> API: POST /admin/professores/{id}/ativacao + JWT ADMIN
+  API -> ProfessorService: Confere professor e conta ainda sem senha
+  API -> ActivationService: Emite novo token de uso unico
+  ActivationService -> DB: Guarda hash; invalida token anterior
+  ActivationService -> SMTP: Envia token ao e-mail institucional
+  API --> UI: 202 + status de entrega (sem token)
+end
+@enduml

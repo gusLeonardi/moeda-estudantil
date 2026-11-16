@@ -1,11 +1,11 @@
-export type Session = { access_token: string; id: number; nome: string; tipo: 'ALUNO'|'PROFESSOR'|'EMPRESA' };
+export type Session = { access_token: string; id: number; nome: string; tipo: 'ALUNO'|'PROFESSOR'|'EMPRESA'|'ADMIN' };
 const KEY = 'conquista.session';
 try { localStorage.removeItem(KEY); } catch { /* Storage may be disabled by the browser. */ }
 
 export function readSession(): Session | null {
   try {
     const value = JSON.parse(sessionStorage.getItem(KEY) || 'null') as Session | null;
-    if (!value || typeof value.access_token !== 'string' || !['ALUNO', 'PROFESSOR', 'EMPRESA'].includes(value.tipo)) return null;
+    if (!value || typeof value.access_token !== 'string' || !['ALUNO', 'PROFESSOR', 'EMPRESA', 'ADMIN'].includes(value.tipo)) return null;
     return value;
   } catch { return null; }
 }

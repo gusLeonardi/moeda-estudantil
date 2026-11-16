@@ -1,20 +1,48 @@
 @startuml
-title Resgate de vantagem — Conquista
+title Resgate de vantagem pelo aluno
+autonumber
 actor Aluno
-boundary Frontend
-control Router
+boundary "Frontend React" as UI
+control "API FastAPI / Router" as API
 control AuthService
 control ResgateService
-entity Repository
-database PostgreSQL
+entity "Repositories de Vantagens e Moedas" as Repo
+database PostgreSQL as DB
 participant SMTP
-Aluno -> Frontend: escolhe vantagem
-Frontend -> Router: POST /resgates + JWT + idempotency_key (no student ID)
-Router -> AuthService: validar ALUNO
-Router -> ResgateService: resgatar(id aluno do JWT)
-ResgateService -> Repository: verificar chave, vantagem e saldo
-Repository -> PostgreSQL: débito, resgate e cupom únicos
-PostgreSQL --> Repository: commit/rollback
-ResgateService -> SMTP: enviar cupom ao aluno e empresa após commit
-ResgateService --> Frontend: mesmo resultado em repetição idempotente
+
+Aluno -> UI: Seleciona vantagem ativa
+UI -> API: POST /resgates + JWT + idempotency_key
+API -> AuthService: Valida JWT e perfil ALUNO
+alt JWT invalido ou perfil incorreto
+  API --> UI: 401/403
+else Aluno autenticado
+  API -> ResgateService: Define aluno_id pelo JWT
+  ResgateService -> Repo: Procura chave idempotente
+  alt Chave ja utilizada
+    Repo -> DB: Consulta resgate pela chave
+    DB --> Repo: Resgate anterior
+    alt Mesmo aluno e mesma vantagem
+      ResgateService --> API: Retorna resultado anterior
+      API --> UI: Resultado idempotente
+    else Chave associada a outra operacao
+      API --> UI: 409; sem nova operacao
+    end
+  else Nova chave
+    ResgateService -> Repo: Verifica aluno, vantagem ativa e saldo
+    Repo -> DB: Debito condicional + resgate + cupom unico
+    alt Saldo suficiente e vantagem ativa
+      DB --> Repo: Commit
+      ResgateService -> SMTP: Envia cupom a aluno e empresa apos commit
+      ResgateService --> API: Resgate e cupom
+      API --> UI: 201 + codigo do cupom
+    else Saldo insuficiente, vantagem invalida ou colisao
+      DB --> Repo: Rollback
+      API --> UI: 409/404; sem debito parcial
+    end
+  end
+end
+note over API,ResgateService
+  aluno_id do corpo e sobrescrito pelo usuario autenticado.
+  Repeticao da mesma chave nao duplica o debito.
+end note
 @enduml

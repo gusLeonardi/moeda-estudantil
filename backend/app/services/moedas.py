@@ -13,6 +13,7 @@ from app.schemas.professor import (
     ExtratoProfessorResponse,
     MovimentoAlunoResponse,
     ProfessorCreate,
+    ProfessorProvisionCreate,
     ProfessorResponse,
     ProfessorUpdate,
     TransferenciaCreate,
@@ -72,6 +73,12 @@ class ProfessorService:
         return professor_response(user)
 
     def create(self, data: ProfessorCreate) -> ProfessorResponse:
+        return self._create(data, hash_password(data.senha))
+
+    def create_unactivated(self, data: ProfessorProvisionCreate) -> ProfessorResponse:
+        return self._create(data, None)
+
+    def _create(self, data: ProfessorCreate | ProfessorProvisionCreate, password_hash: str | None) -> ProfessorResponse:
         if not self.usuarios.instituicao(data.instituicao_id):
             raise NotFoundError(
                 "Instituição de ensino não encontrada"
@@ -87,7 +94,7 @@ class ProfessorService:
             nome=data.nome.strip(),
             email=str(data.email).lower(),
             tipo="PROFESSOR",
-            senha_hash=hash_password(data.senha),
+            senha_hash=password_hash,
         )
 
         user.endereco = Endereco(**data.endereco.model_dump())

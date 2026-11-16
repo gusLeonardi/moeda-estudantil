@@ -11,7 +11,9 @@ export function Dashboard() {
   const session = readSession();
   const professor = session?.tipo === 'PROFESSOR';
   const indicators = useAsync(() => professor ? dashboardService.obterIndicadores() : Promise.resolve(null), [professor]);
-  const cards: DashboardCard[] = session?.tipo === 'ALUNO' ? [
+  const cards: DashboardCard[] = session?.tipo === 'ADMIN' ? [
+    { title: 'Gerenciar professores', icon: School, description: 'Pré-cadastre docentes, confira os dados e acompanhe a ativação das contas.', to: '/admin/professores' },
+  ] : session?.tipo === 'ALUNO' ? [
     { title: 'Meu perfil acadêmico', icon: GraduationCap, description: 'Consulte seus dados e acompanhe sua trajetória.', to: '/alunos' },
     { title: 'Catálogo de vantagens', icon: ShoppingBag, description: 'Explore benefícios e consulte seus resgates.', to: '/catalogo' },
   ] : session?.tipo === 'EMPRESA' ? [

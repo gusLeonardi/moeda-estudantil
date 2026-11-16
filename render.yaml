@@ -16,6 +16,10 @@ services:
         generateValue: true
       - key: ADMIN_CRON_TOKEN
         generateValue: true
+      - key: ADMIN_UI_USERNAME
+        sync: false
+      - key: ADMIN_UI_PASSWORD_HASH
+        sync: false
       - key: CORS_ORIGINS
         sync: false
       - key: SMTP_HOST

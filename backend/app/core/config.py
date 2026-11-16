@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     jwt_secret: str = ""
     admin_cron_token: str = ""
+    admin_ui_username: str = ""
+    admin_ui_password_hash: str = ""
     app_env: str = "development"
 
     model_config = SettingsConfigDict(
@@ -40,6 +42,8 @@ class Settings(BaseSettings):
             raise RuntimeError("JWT_SECRET de pelo menos 32 bytes precisa ser configurado em produção")
         if len(self.admin_cron_token.encode()) < 32:
             raise RuntimeError("ADMIN_CRON_TOKEN de pelo menos 32 bytes precisa ser configurado em produção")
+        if not self.admin_ui_username or not self.admin_ui_password_hash.startswith("$argon2"):
+            raise RuntimeError("ADMIN_UI_USERNAME e ADMIN_UI_PASSWORD_HASH Argon2 precisam ser configurados em produção")
         if not self.database_url.startswith(("postgresql://", "postgresql+psycopg://")):
             raise RuntimeError("DATABASE_URL de PostgreSQL precisa ser configurada em produção")
         sslmode = make_url(self.database_url).query.get("sslmode")

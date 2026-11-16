@@ -34,6 +34,19 @@ class ProfessorUpdate(BaseModel):
     endereco: EnderecoInput
 
 
+class ProfessorProvisionCreate(ProfessorUpdate):
+    """Administrative pre-provisioning; the professor sets their own password by activation."""
+    cpf: str
+
+    @field_validator("cpf")
+    @classmethod
+    def validate_cpf(cls, value: str) -> str:
+        digits = only_digits(value)
+        if not is_valid_cpf(digits):
+            raise ValueError("CPF inválido")
+        return digits
+
+
 class ProfessorResponse(BaseModel):
     id: int
     nome: str

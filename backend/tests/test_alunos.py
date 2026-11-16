@@ -28,6 +28,18 @@ def test_duplicidades_e_instituicao(client, endereco):
     assert client.post("/api/alunos", json=aluno_payload(endereco, email="nova@pucminas.br", cpf="11144477735", instituicao_id=999)).status_code == 404
 
 
+def test_cadastro_publico_de_aluno_recusa_jwt_autenticado(client, endereco):
+    original = client.post("/api/alunos", json=aluno_payload(endereco))
+    assert original.status_code == 201
+    token = client.post("/api/auth/login", json={"email": "ana@pucminas.br", "senha": "Senha-Forte-Teste-123!"}).json()["access_token"]
+
+    second = aluno_payload(endereco, nome="Outra Aluna", email="outra@pucminas.br", cpf="11144477735")
+    assert client.post("/api/alunos", json=second, headers={"Authorization": f"Bearer {token}"}).status_code == 403
+    assert client.post("/api/alunos", json=second, headers={"Authorization": "Bearer token-invalido"}).status_code == 401
+    own_records = client.get("/api/alunos", headers={"Authorization": f"Bearer {token}"}).json()
+    assert [record["id"] for record in own_records] == [original.json()["id"]]
+
+
 def test_busca_aluno(client, endereco):
     client.post("/api/alunos", json=aluno_payload(endereco))
     assert len(client.get("/api/alunos?busca=ana").json()) == 1

@@ -139,3 +139,84 @@ def test_debitos_competindo_nao_geram_saldo_negativo(client, endereco):
         first, second = executor.map(lambda payload: client.post("/api/resgates", json=payload), payloads)
     assert sorted([first.status_code, second.status_code]) == [201, 409]
     assert client.get(f"/api/alunos/{aluno['id']}").json()["saldo"] == "20.00"
+
+
+def criar_empresa_autenticada(client, endereco, email, nome, cnpj):
+    created = client.post("/api/empresas", json=empresa_payload(endereco, nome=nome, email=email, cnpj=cnpj))
+    assert created.status_code == 201
+    login = client.post("/api/auth/login", json={"email": email, "senha": "Senha-Forte-Teste-123!"})
+    assert login.status_code == 200
+    return created.json(), {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+
+def payload_vantagem(nome):
+    return {
+        "nome": nome,
+        "descricao": f"Benefício da {nome}",
+        "custo": 10,
+        "imagem_url": "https://images.example.test/oferta.png",
+        "ativa": True,
+    }
+
+
+def test_isolamento_de_vantagens_entre_empresas(client, endereco):
+    empresa_a, headers_a = criar_empresa_autenticada(client, endereco, "a@example.com", "Empresa A", "11222333000181")
+    empresa_b, headers_b = criar_empresa_autenticada(client, endereco, "b@example.com", "Empresa B", "11444777000161")
+
+    vantagem_a = client.post("/api/vantagens", json={**payload_vantagem("Vantagem A"), "empresa_id": empresa_b["id"]}, headers=headers_a)
+    vantagem_b = client.post("/api/vantagens", json={**payload_vantagem("Vantagem B"), "empresa_id": empresa_a["id"]}, headers=headers_b)
+    assert vantagem_a.status_code == vantagem_b.status_code == 201
+    a, b = vantagem_a.json(), vantagem_b.json()
+    assert a["empresa_id"] == empresa_a["id"]
+    assert b["empresa_id"] == empresa_b["id"]
+
+    assert {x["id"] for x in client.get("/api/vantagens/minhas?empresa_id=" + str(empresa_b["id"]), headers=headers_a).json()} == {a["id"]}
+    assert {x["id"] for x in client.get("/api/vantagens/minhas", headers=headers_b).json()} == {b["id"]}
+    assert {x["id"] for x in client.get("/api/vantagens?empresa_id=" + str(empresa_b["id"]), headers=headers_a).json()} == {a["id"]}
+
+    update = {"nome": "Atualizada pela A", "descricao": "Atualização permitida", "custo": 11, "imagem_url": "https://images.example.test/updated.png", "ativa": True}
+    assert client.put(f"/api/vantagens/{a['id']}", json=update, headers=headers_a).status_code == 200
+    assert client.put(f"/api/vantagens/{b['id']}", json=update, headers=headers_a).status_code == 404
+    assert client.put(f"/api/vantagens/{a['id']}", json=update, headers=headers_b).status_code == 404
+    assert client.post(f"/api/vantagens/{b['id']}/desativar", headers=headers_a).status_code == 404
+    assert client.post(f"/api/vantagens/{a['id']}/ativar", headers=headers_b).status_code == 404
+    assert client.post(f"/api/vantagens/{b['id']}/ativar", headers=headers_a).status_code == 404
+    assert client.post(f"/api/vantagens/{a['id']}/desativar", headers=headers_b).status_code == 404
+    assert client.delete(f"/api/vantagens/{b['id']}", headers=headers_a).status_code == 404
+    assert client.delete(f"/api/vantagens/{a['id']}", headers=headers_b).status_code == 404
+    assert client.post(f"/api/vantagens/{a['id']}/desativar", headers=headers_a).status_code == 200
+    assert client.post(f"/api/vantagens/{a['id']}/ativar", headers=headers_a).status_code == 200
+    assert client.delete(f"/api/vantagens/{a['id']}", headers=headers_a).status_code == 204
+
+
+def test_catalogo_de_aluno_e_cupom_escopado_a_empresa_dona(client, endereco):
+    empresa_a, headers_a = criar_empresa_autenticada(client, endereco, "cupons-a@example.com", "Empresa A", "11222333000181")
+    empresa_b, headers_b = criar_empresa_autenticada(client, endereco, "cupons-b@example.com", "Empresa B", "11444777000161")
+    vantagem_a = client.post("/api/vantagens", json=payload_vantagem("Oferta A"), headers=headers_a).json()
+    vantagem_b = client.post("/api/vantagens", json=payload_vantagem("Oferta B"), headers=headers_b).json()
+
+    professor, aluno = criar_participantes(client, endereco)
+    creditar_aluno(client, professor["id"], aluno["id"], 100)
+    catalog_headers = client.post("/api/auth/login", json={"email": "aluno@example.com", "senha": "Senha-Forte-Teste-123!"})
+    assert catalog_headers.status_code == 200
+    aluno_headers = {"Authorization": f"Bearer {catalog_headers.json()['access_token']}"}
+    catalog = client.get("/api/vantagens/catalogo?empresa_id=" + str(empresa_a["id"]), headers=aluno_headers)
+    assert catalog.status_code == 200
+    assert {item["id"] for item in catalog.json()} == {vantagem_a["id"], vantagem_b["id"]}
+    assert client.get(f"/api/vantagens/{vantagem_a['id']}", headers=aluno_headers).status_code == 200
+
+    resgate_a = client.post("/api/resgates", json={"aluno_id": aluno["id"], "vantagem_id": vantagem_a["id"], "idempotency_key": "cupom-isolado-a"})
+    resgate_b = client.post("/api/resgates", json={"aluno_id": aluno["id"], "vantagem_id": vantagem_b["id"], "idempotency_key": "cupom-isolado-b"})
+    assert resgate_a.status_code == resgate_b.status_code == 201
+    code_a, code_b = resgate_a.json()["codigo_cupom"], resgate_b.json()["codigo_cupom"]
+
+    own_coupon = client.post("/api/cupons/consultar", json={"empresa_id": empresa_b["id"], "codigo_cupom": code_a}, headers=headers_a)
+    assert own_coupon.status_code == 200 and own_coupon.json()["empresa_id"] == empresa_a["id"]
+    assert client.post("/api/cupons/consultar", json={"empresa_id": empresa_a["id"], "codigo_cupom": code_b}, headers=headers_a).status_code == 404
+    assert client.post("/api/cupons/consultar", json={"codigo_cupom": code_a}, headers=headers_b).status_code == 404
+    assert client.post("/api/cupons/validar", json={"empresa_id": empresa_a["id"], "codigo_cupom": code_b}, headers=headers_a).status_code == 404
+    validated = client.post("/api/cupons/validar", json={"empresa_id": empresa_a["id"], "codigo_cupom": code_b}, headers=headers_b)
+    assert validated.status_code == 200 and validated.json()["empresa_id"] == empresa_b["id"]
+
+    assert client.delete(f"/api/vantagens/{vantagem_a['id']}", headers=headers_a).status_code == 409
+    assert client.post("/api/cupons/consultar", json={"codigo_cupom": code_a}, headers=headers_a).status_code == 200

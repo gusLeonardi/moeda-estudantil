@@ -18,7 +18,6 @@ export interface CupomValidacao extends CupomConferencia {
 }
 
 export interface CupomConsultaPayload {
-  empresa_id: number;
   codigo_cupom: string;
 }
 

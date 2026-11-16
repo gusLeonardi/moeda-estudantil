@@ -12,7 +12,6 @@ from pydantic import BaseModel, Field, field_validator
 # ==========================================
 
 class VantagemCreate(BaseModel):
-    empresa_id: int = Field(gt=0)
     nome: Annotated[str, Field(min_length=2, max_length=150)]
     descricao: Annotated[str, Field(min_length=3, max_length=1000)]
     custo: int = Field(gt=0)
@@ -115,8 +114,6 @@ class ResgateResponse(BaseModel):
 # ==========================================
 
 class CupomConferenciaCreate(BaseModel):
-    empresa_id: int = Field(gt=0)
-
     codigo_cupom: Annotated[
         str,
         Field(min_length=1, max_length=32),

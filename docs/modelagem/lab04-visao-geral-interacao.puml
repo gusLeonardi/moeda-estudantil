@@ -1,32 +1,56 @@
 @startuml
-title UML 2 Interaction Overview - Conquista
+title Conquista - Diagrama de Visao Geral de Interacao
+skinparam shadowing false
 skinparam activity {
   BackgroundColor #F8FAFC
   BorderColor #3155A6
   DiamondBackgroundColor #E0F2FE
   DiamondBorderColor #0369A1
+  ArrowColor #334155
 }
 
 start
-:<<InteractionUse>> ref\nlab04-seq-autenticacao;
-if (JWT valid and account active?) then (yes)
-  if (Role PROFESSOR and transfer requested?) then (yes)
-    :<<InteractionUse>> ref\nlab04-seq-transferencia;
-  else (no)
-    if (Role ALUNO and redemption requested?) then (yes)
-      :<<InteractionUse>> ref\nlab04-seq-resgate;
-    else (Role EMPRESA and coupon check requested)
-      :<<InteractionUse>> ref\nlab04-seq-cupom;
-    endif
+if (Solicitacao administrativa?) then (sim)
+  :<<InteractionUse>> ref lab04-seq-admin-professores\nLogin ADMIN, pre-cadastro, consulta, edicao e ativacao;
+  if (JWT ADMIN valido?) then (sim)
+    :Operacao administrativa autorizada;
+  else (nao)
+    :HTTP 401/403; operacao negada;
   endif
-else (no)
-  :Return HTTP 401 or HTTP 403;
+else (usuario comum)
+  :<<InteractionUse>> ref lab04-seq-autenticacao\nLogin publico ou ativacao de conta legada;
+  if (JWT valido e conta ativa?) then (sim)
+    if (Perfil ALUNO?) then (sim)
+      :Consultar catalogo publico de vantagens ativas;
+      if (Resgatar vantagem?) then (sim)
+        :<<InteractionUse>> ref lab04-seq-resgate\nALUNO do JWT; saldo e chave idempotente;
+      endif
+    else (nao)
+      if (Perfil PROFESSOR?) then (sim)
+        :Consultar alunos permitidos e proprio extrato;
+        if (Transferir moedas?) then (sim)
+          :<<InteractionUse>> ref lab04-seq-transferencia\nPROFESSOR do JWT como origem;
+        endif
+      else (EMPRESA)
+        :Consultar somente minhas vantagens;
+        if (Gerenciar vantagem propria?) then (sim)
+          :Criar, editar, ativar, desativar ou excluir\ncom propriedade verificada na API;
+        endif
+        if (Consultar ou validar cupom proprio?) then (sim)
+          :<<InteractionUse>> ref lab04-seq-cupom\nEMPRESA do JWT e propriedade verificadas;
+        endif
+      endif
+    endif
+  else (nao)
+    :HTTP 401; perfil incorreto recebe HTTP 403;
+  endif
 endif
 stop
 
 note right
-  Each stereotyped action is an InteractionUse node
-  referencing the named sequence interaction.
-  Decision and merge control nodes follow UML Activity notation.
+  Interaction Overview UML: os nos InteractionUse referenciam interacoes
+  detalhadas nos diagramas de sequencia. Decisoes e fluxos de controle
+  usam a notacao de atividade UML. Identidade, papel e propriedade
+  sao sempre conferidos pela API.
 end note
 @enduml

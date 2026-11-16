@@ -6,31 +6,28 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { z } from 'zod';
 import { PageHeader } from '../components/UI';
 import { apiMessage } from '../services/api';
-import { empresaService } from '../services/empresaService';
 import { vantagemService } from '../services/vantagemService';
-import type { Empresa } from '../types';
 
 const secureImageUrl = z.string().trim().url('Informe uma URL válida').refine(value => {
   try { return new URL(value).protocol === 'https:'; } catch { return false; }
 }, 'A imagem deve usar HTTPS.');
-const schema = z.object({ empresa_id: z.coerce.number().positive('Selecione a empresa'), nome: z.string().trim().min(2, 'Informe um nome'), descricao: z.string().trim().min(3, 'Descreva a vantagem'), custo: z.coerce.number().int().positive('O custo deve ser maior que zero'), imagem_url: secureImageUrl, ativa: z.boolean() });
+const schema = z.object({ nome: z.string().trim().min(2, 'Informe um nome'), descricao: z.string().trim().min(3, 'Descreva a vantagem'), custo: z.coerce.number().int().positive('O custo deve ser maior que zero'), imagem_url: secureImageUrl, ativa: z.boolean() });
 type Form = z.infer<typeof schema>;
 
 export function VantagemForm() {
   const { id } = useParams(); const editing = !!id; const navigate = useNavigate();
-  const [empresas, setEmpresas] = useState<Empresa[]>([]); const [serverError, setServerError] = useState('');
-  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<Form>({ resolver: zodResolver(schema), defaultValues: { empresa_id: 0, nome: '', descricao: '', custo: 1, imagem_url: '', ativa: true } });
+  const [serverError, setServerError] = useState('');
+  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<Form>({ resolver: zodResolver(schema), defaultValues: { nome: '', descricao: '', custo: 1, imagem_url: '', ativa: true } });
   const imageUrl = watch('imagem_url');
 
   useEffect(() => {
-    empresaService.listar().then(setEmpresas).catch(err => setServerError(apiMessage(err)));
-    if (editing) vantagemService.obter(Number(id)).then(item => reset({ empresa_id: item.empresa_id, nome: item.nome, descricao: item.descricao, custo: Number(item.custo), imagem_url: item.imagem_url ?? '', ativa: item.ativa })).catch(err => setServerError(apiMessage(err)));
+    if (editing) vantagemService.obter(Number(id)).then(item => reset({ nome: item.nome, descricao: item.descricao, custo: Number(item.custo), imagem_url: item.imagem_url ?? '', ativa: item.ativa })).catch(err => setServerError(apiMessage(err)));
   }, [id, editing, reset]);
 
   const submit = async (values: Form) => {
     setServerError('');
     try {
-      if (editing) { const { empresa_id: _, ...data } = values; await vantagemService.atualizar(Number(id), data); }
+      if (editing) await vantagemService.atualizar(Number(id), values);
       else await vantagemService.criar(values);
       navigate('/vantagens');
     } catch (err) { setServerError(apiMessage(err)); }
@@ -41,7 +38,6 @@ export function VantagemForm() {
     <form onSubmit={handleSubmit(submit)} className="card p-5 sm:p-8">
       {serverError && <p role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{serverError}</p>}
       <div className="grid gap-5 sm:grid-cols-2">
-        <label><span className="label">Empresa parceira</span><select className="field" disabled={editing} {...register('empresa_id')}><option value={0}>Selecione sua empresa</option>{empresas.map(item => <option key={item.id} value={item.id}>{item.nome}</option>)}</select>{errors.empresa_id && <p className="error">{errors.empresa_id.message}</p>}</label>
         <label><span className="label">Nome da vantagem</span><input className="field" placeholder="Ex.: Desconto no almoço" {...register('nome')} />{errors.nome && <p className="error">{errors.nome.message}</p>}</label>
         <label className="sm:col-span-2"><span className="label">Descrição</span><textarea className="field min-h-28" placeholder="Explique o benefício, as condições e como resgatar." {...register('descricao')} />{errors.descricao && <p className="error">{errors.descricao.message}</p>}</label>
         <label><span className="label">Custo em moedas</span><input type="number" min={1} step={1} className="field" {...register('custo')} />{errors.custo && <p className="error">{errors.custo.message}</p>}</label>

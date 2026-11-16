@@ -46,6 +46,15 @@ def issue_token(user: Usuario) -> str:
                       get_settings().signing_secret(), algorithm="HS256")
 
 
+def issue_admin_token(username: str) -> str:
+    now = datetime.now(timezone.utc)
+    return jwt.encode(
+        {"sub": username, "role": "ADMIN", "iat": now,
+         "exp": now + timedelta(minutes=15), "jti": secrets.token_hex(12)},
+        get_settings().signing_secret(), algorithm="HS256",
+    )
+
+
 def authenticate(email: str, password: str, db: Session) -> Usuario:
     user = db.scalar(select(Usuario).where(Usuario.email == email.lower()))
     if not user or not verify_password(password, user.senha_hash):
@@ -74,6 +83,33 @@ def require_role(*roles: str):
             raise HTTPException(403, "Perfil sem permissão para esta operação")
         return user
     return dependency
+
+
+def require_admin(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> str:
+    settings = get_settings()
+    if credentials is None:
+        raise HTTPException(401, "Autenticação administrativa necessária", headers={"WWW-Authenticate": "Bearer"})
+    try:
+        payload = jwt.decode(credentials.credentials, settings.signing_secret(), algorithms=["HS256"])
+    except jwt.PyJWTError:
+        raise HTTPException(401, "Token inválido ou expirado", headers={"WWW-Authenticate": "Bearer"})
+    username = payload.get("sub")
+    if payload.get("role") != "ADMIN" or not isinstance(username, str) or not hmac.compare_digest(username, settings.admin_ui_username):
+        raise HTTPException(403, "Perfil sem permissão para esta operação")
+    return username
+
+
+def require_anonymous_registration(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+) -> None:
+    """Allow public registration only when no valid Conquista JWT is presented."""
+    if credentials is None:
+        return
+    try:
+        jwt.decode(credentials.credentials, get_settings().signing_secret(), algorithms=["HS256"])
+    except jwt.PyJWTError:
+        raise HTTPException(401, "Token inválido ou expirado")
+    raise HTTPException(403, "O cadastro público está disponível apenas para visitantes.")
 
 
 def password_setup_token(email: str, secret: str) -> str:

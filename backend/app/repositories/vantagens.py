@@ -75,6 +75,27 @@ class VantagemRepository:
 
         return self.db.scalar(stmt)
 
+    def get_owned(self, vantagem_id: int, empresa_id: int) -> Vantagem | None:
+        stmt = (
+            select(Vantagem)
+            .where(Vantagem.id == vantagem_id, Vantagem.empresa_id == empresa_id)
+            .options(selectinload(Vantagem.empresa).selectinload(EmpresaParceira.usuario))
+        )
+        return self.db.scalar(stmt)
+
+    def get_active(self, vantagem_id: int) -> Vantagem | None:
+        stmt = (
+            select(Vantagem)
+            .where(Vantagem.id == vantagem_id, Vantagem.ativa.is_(True))
+            .options(selectinload(Vantagem.empresa).selectinload(EmpresaParceira.usuario))
+        )
+        return self.db.scalar(stmt)
+
+    def has_resgates(self, vantagem_id: int) -> bool:
+        return self.db.scalar(
+            select(ResgateVantagem.id).where(ResgateVantagem.vantagem_id == vantagem_id).limit(1)
+        ) is not None
+
     def add(self, entity: object) -> None:
         self.db.add(entity)
 
@@ -188,9 +209,11 @@ class VantagemRepository:
     ) -> ResgateVantagem | None:
         stmt = (
             select(ResgateVantagem)
+            .join(Vantagem, Vantagem.id == ResgateVantagem.vantagem_id)
             .where(
                 ResgateVantagem.codigo_cupom == codigo,
                 ResgateVantagem.empresa_id == empresa_id,
+                Vantagem.empresa_id == empresa_id,
             )
             .options(
                 selectinload(ResgateVantagem.vantagem)
@@ -208,11 +231,16 @@ class VantagemRepository:
         codigo: str,
         empresa_id: int,
     ) -> int | None:
+        owner_matches = select(Vantagem.id).where(
+            Vantagem.id == ResgateVantagem.vantagem_id,
+            Vantagem.empresa_id == empresa_id,
+        ).exists()
         stmt = (
             update(ResgateVantagem)
             .where(
                 ResgateVantagem.codigo_cupom == codigo,
                 ResgateVantagem.empresa_id == empresa_id,
+                owner_matches,
                 ResgateVantagem.utilizado_em.is_(None),
             )
             .values(

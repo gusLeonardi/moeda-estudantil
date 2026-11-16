@@ -18,7 +18,7 @@ export function Catalogo() {
   const [processing, setProcessing] = useState<number | null>(null);
 
   useEffect(() => {
-    Promise.all([vantagemService.listar(true), alunoService.extrato(studentId)])
+    Promise.all([vantagemService.catalogo(), alunoService.extrato(studentId)])
       .then(([items, statement]) => { setVantagens(items); setExtrato(statement); })
       .catch(err => setError(apiMessage(err)))
       .finally(() => setLoading(false));

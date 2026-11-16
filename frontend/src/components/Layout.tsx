@@ -5,6 +5,7 @@ import {
   Home,
   Menu,
   School,
+  ShieldCheck,
   ShoppingBag,
   TicketCheck,
   X,
@@ -23,13 +24,14 @@ const links = [
   ['/vantagens', 'Gerenciar vantagens', Gift],
   ['/catalogo', 'Catálogo e resgates', ShoppingBag],
   ['/cupons', 'Conferência de cupons', TicketCheck],
+  ['/admin/professores', 'Gestão de professores', ShieldCheck],
 ] as const;
 
 export function Layout() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const session = readSession();
-  const allowed = session?.tipo === 'ALUNO' ? new Set(['/','/alunos','/catalogo']) : session?.tipo === 'PROFESSOR' ? new Set(['/','/alunos','/professores']) : new Set(['/','/empresas','/vantagens','/catalogo','/cupons']);
+  const allowed = session?.tipo === 'ADMIN' ? new Set(['/','/admin/professores']) : session?.tipo === 'ALUNO' ? new Set(['/','/alunos','/catalogo']) : session?.tipo === 'PROFESSOR' ? new Set(['/','/alunos','/professores']) : new Set(['/','/empresas','/vantagens','/cupons']);
 
   return (
     <div className="min-h-screen lg:flex">
@@ -70,31 +72,37 @@ export function Layout() {
           aria-label="Navegação principal"
           className="space-y-2 p-4"
         >
-          {links.filter(([to]) => allowed.has(to)).map(([to, label, Icon]) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition ${
-                  isActive
-                    ? 'bg-white text-navy'
-                    : 'text-blue-100 hover:bg-white/10'
-                }`
-              }
-            >
-              <Icon size={19} />
-              {label}
-            </NavLink>
-          ))}
+          {links.filter(([to]) => allowed.has(to)).map(([to, label, Icon]) => {
+            const profileLabel = to === '/alunos' && session?.tipo === 'ALUNO' ? 'Meu perfil'
+              : to === '/empresas' && session?.tipo === 'EMPRESA' ? 'Meu perfil'
+              : to === '/professores' && session?.tipo === 'PROFESSOR' ? 'Meu perfil'
+              : label;
+            return (
+              <NavLink
+                key={to}
+                to={to}
+                end={to === '/'}
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition ${
+                    isActive
+                      ? 'bg-white text-navy'
+                      : 'text-blue-100 hover:bg-white/10'
+                  }`
+                }
+              >
+                <Icon size={19} />
+                {profileLabel}
+              </NavLink>
+            );
+          })}
         </nav>
 
         <div className="absolute bottom-4 left-6 right-6 rounded-2xl bg-white/5 p-3 text-xs text-blue-100">
           <b className="mb-1 block text-white">
-            Demonstração local
+            Área autenticada
           </b>
-          Sem autenticação ou controle de perfis.
+          Acesso restrito conforme seu perfil.
         </div>
       </aside>
 

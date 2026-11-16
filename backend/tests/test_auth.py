@@ -61,6 +61,9 @@ def test_production_configuration_requires_private_secrets_tls_and_https_cors(mo
         settings.validate_production()
     settings.jwt_secret = "j" * 40
     settings.admin_cron_token = "a" * 40
+    settings.admin_ui_username = "admin"
+    from app.services.auth import hash_password
+    settings.admin_ui_password_hash = hash_password("Senha-Administrativa-Segura-2026!")
     settings.database_url = "postgresql+psycopg://app:pass@db.example.test/conquista?sslmode=require"
     settings.cors_origins = "https://conquista.example.test"
     settings.validate_production()
@@ -116,6 +119,95 @@ def test_activation_delivery_failure_invalidates_grant(client, monkeypatch, capl
     with TestingSession() as db:
         count = db.execute(text("SELECT COUNT(*) FROM ativacoes_conta")).scalar_one()
     assert count == 0
+
+
+def _admin_session(client):
+    from conftest import TEST_ADMIN_PASSWORD
+    response = client.post("/api/admin/auth/login", json={"username": "admin-teste", "senha": TEST_ADMIN_PASSWORD})
+    assert response.status_code == 200
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
+def test_admin_login_and_professor_management_authorization(client, endereco):
+    from tests.test_empresas import empresa_payload
+    from tests.test_moedas import aluno_payload, professor_payload, provisionar_professor
+
+    assert client.get("/api/admin/professores").status_code == 401
+    assert client.post("/api/admin/auth/login", json={"username": "admin-teste", "senha": "senha-errada"}).status_code == 401
+    admin_headers = _admin_session(client)
+
+    student = client.post("/api/alunos", json=aluno_payload(endereco)).json()
+    teacher = provisionar_professor(client, professor_payload(endereco)).json()
+    company = client.post("/api/empresas", json=empresa_payload(endereco)).json()
+    provision_payload = professor_payload(endereco, email="admin-check@example.com")
+    provision_payload.pop("senha")
+    update_payload = {
+        "nome": "Tentativa de alteração", "email": "professor@example.com",
+        "departamento": "Computação", "instituicao_id": 1, "endereco": endereco,
+    }
+    cases = [
+        ("aluno@example.com", "ALUNO", student),
+        ("professor@example.com", "PROFESSOR", teacher),
+        ("contato@livraria.com", "EMPRESA", company),
+    ]
+    for email, _role, _person in cases:
+        token = client.post("/api/auth/login", json={"email": email, "senha": "Senha-Forte-Teste-123!"}).json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+        assert client.get("/api/admin/professores", headers=headers).status_code == 403
+        assert client.post("/api/admin/professores", headers=headers, json=provision_payload).status_code == 403
+        assert client.put(f"/api/admin/professores/{teacher['id']}", headers=headers, json=update_payload).status_code == 403
+
+    listed = client.get("/api/admin/professores", headers=admin_headers)
+    assert listed.status_code == 200
+    assert len(listed.json()) == 1
+    assert listed.json()[0]["conta_ativada"] is True
+    assert client.get(f"/api/admin/professores/{teacher['id']}", headers=admin_headers).status_code == 200
+    assert client.put(f"/api/admin/professores/{teacher['id']}", headers=admin_headers, json={}).status_code == 422
+
+
+def test_admin_provisions_professor_without_password_and_activation_is_one_time(client, endereco, monkeypatch):
+    import re
+    import app.services.auth as auth
+    from conftest import TestingSession
+    from app.models import Usuario
+    from tests.test_moedas import professor_payload
+
+    sent = {}
+    def capture_email(email, subject, html):
+        sent.update(email=email, subject=subject, html=html)
+        return True
+    monkeypatch.setattr(auth, "enviar_email", capture_email)
+
+    payload = professor_payload(endereco, email="novo.professor@example.com")
+    payload.pop("senha")
+    response = client.post("/api/admin/professores", headers=_admin_session(client), json=payload)
+    assert response.status_code == 201
+    data = response.json()
+    professor = data["professor"]
+    assert data["activation_sent"] is True
+    assert professor["saldo"] == "1000.00"
+    assert professor["instituicao"]["id"] == 1
+    assert professor["conta_ativada"] is False
+    with TestingSession() as db:
+        user = db.get(Usuario, professor["id"])
+        assert user.senha_hash is None
+        assert user.professor.instituicao_id == 1
+
+    token_match = re.search(r"<p>([A-Za-z0-9_-]{40,})</p>", sent["html"])
+    assert token_match
+    token = token_match.group(1)
+    activated = client.post("/api/auth/activation/complete", json={"email": professor["email"], "token": token, "senha": "Senha-Nova-Segura-2026!"})
+    assert activated.status_code == 204
+    assert client.post("/api/auth/activation/complete", json={"email": professor["email"], "token": token, "senha": "Senha-Outra-Segura-2026!"}).status_code == 400
+    admin_headers = _admin_session(client)
+    assert client.get(f"/api/admin/professores/{professor['id']}", headers=admin_headers).json()["conta_ativada"] is True
+    assert client.post(f"/api/admin/professores/{professor['id']}/ativacao", headers=admin_headers).json()["accepted"] is False
+
+    updated = {key: payload[key] for key in ("nome", "email", "departamento", "instituicao_id", "endereco")}
+    updated["nome"] = "Professor Atualizado"
+    changed = client.put(f"/api/admin/professores/{professor['id']}", headers=admin_headers, json=updated)
+    assert changed.status_code == 200
+    assert changed.json()["nome"] == "Professor Atualizado"
 
 
 def test_activation_reports_missing_migration_without_sql_traceback(client):

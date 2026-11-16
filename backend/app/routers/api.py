@@ -57,8 +57,10 @@ from app.services.vantagens import (
     ResgateService,
     VantagemService,
 )
-from app.schemas.auth import ActivationRequest, DefinirSenhaRequest, LoginRequest, TokenResponse
-from app.services.auth import activate_account, authenticate, current_user, issue_token, request_activation, require_role
+from app.schemas.auth import ActivationRequest, AdminLoginRequest, DefinirSenhaRequest, LoginRequest, TokenResponse
+from app.schemas.admin import AdminProfessorCreateResponse, AdminProfessorResponse
+from app.schemas.professor import ProfessorProvisionCreate
+from app.services.auth import activate_account, authenticate, current_user, issue_admin_token, issue_token, request_activation, require_admin, require_anonymous_registration, require_role, verify_password
 from app.services.rate_limit import enforce_auth_limits
 from app.core.config import get_settings
 from app.models import Usuario
@@ -88,6 +90,18 @@ def login(data: LoginRequest, db: Db, request: Request):
     enforce_auth_limits(db, "login", [("ip", ip, 20), ("email", str(data.email), 5)], 15 * 60)
     user = authenticate(str(data.email), data.senha, db)
     return TokenResponse(access_token=issue_token(user), id=user.id, nome=user.nome, tipo=user.tipo)
+
+
+@router.post("/admin/auth/login", response_model=TokenResponse)
+def admin_login(data: AdminLoginRequest, db: Db, request: Request):
+    settings = get_settings()
+    ip = _request_ip(request)
+    enforce_auth_limits(db, "admin-login", [("ip", ip, 10), ("email", data.username, 5)], 15 * 60)
+    username_ok = bool(settings.admin_ui_username) and __import__("hmac").compare_digest(data.username, settings.admin_ui_username)
+    password_ok = bool(settings.admin_ui_password_hash) and verify_password(data.senha, settings.admin_ui_password_hash)
+    if not username_ok or not password_ok:
+        raise HTTPException(401, "Usuário ou senha inválidos", headers={"WWW-Authenticate": "Bearer"})
+    return TokenResponse(access_token=issue_admin_token(settings.admin_ui_username), id=0, nome=settings.admin_ui_username, tipo="ADMIN")
 
 @router.post("/auth/activation/request", status_code=202)
 def solicitar_ativacao(data: ActivationRequest, db: Db, request: Request):
@@ -132,7 +146,7 @@ def obter_aluno(entity_id: int, db: Db, actor: Usuario = Depends(require_role("A
     response_model=AlunoResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def criar_aluno(data: AlunoCreate, db: Db):
+def criar_aluno(data: AlunoCreate, db: Db, _: None = Depends(require_anonymous_registration)):
     return AlunoService(db).create(data)
 
 
@@ -183,7 +197,7 @@ def obter_empresa(entity_id: int, db: Db, actor: Usuario = Depends(require_role(
     response_model=EmpresaResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def criar_empresa(data: EmpresaCreate, db: Db):
+def criar_empresa(data: EmpresaCreate, db: Db, _: None = Depends(require_anonymous_registration)):
     return EmpresaService(db).create(data)
 
 
@@ -252,6 +266,57 @@ def listar_professores(
 def obter_professor(entity_id: int, db: Db, actor: Usuario = Depends(require_role("PROFESSOR"))):
     _self(actor, entity_id, "PROFESSOR")
     return ProfessorService(db).get(entity_id)
+
+
+@router.get("/admin/professores", response_model=list[AdminProfessorResponse])
+def listar_professores_admin(
+    db: Db,
+    _: str = Depends(require_admin),
+    busca: str | None = Query(None, max_length=100),
+):
+    return [
+        AdminProfessorResponse(**item.model_dump(), conta_ativada=bool(db.get(Usuario, item.id).senha_hash))
+        for item in ProfessorService(db).list(busca)
+    ]
+
+
+@router.get("/admin/professores/{entity_id}", response_model=AdminProfessorResponse)
+def obter_professor_admin(entity_id: int, db: Db, _: str = Depends(require_admin)):
+    item = ProfessorService(db).get(entity_id)
+    return AdminProfessorResponse(**item.model_dump(), conta_ativada=bool(db.get(Usuario, item.id).senha_hash))
+
+
+@router.post("/admin/professores", status_code=status.HTTP_201_CREATED, response_model=AdminProfessorCreateResponse)
+def provisionar_professor_admin(data: ProfessorProvisionCreate, db: Db, request: Request, _: str = Depends(require_admin)):
+    enforce_auth_limits(db, "admin-professor-provision", [("ip", _request_ip(request), 20), ("email", str(data.email), 3)], 60 * 60)
+    professor = ProfessorService(db).create_unactivated(data)
+    try:
+        activation_sent = request_activation(professor.email, db)
+    except HTTPException:
+        # Keep the provisioned account; the administrator can retry delivery later.
+        activation_sent = False
+    admin_professor = AdminProfessorResponse(**professor.model_dump(), conta_ativada=False)
+    return {"professor": admin_professor, "activation_sent": activation_sent}
+
+
+@router.post("/admin/professores/{entity_id}/ativacao", status_code=202)
+def reenviar_ativacao_professor_admin(entity_id: int, db: Db, request: Request, _: str = Depends(require_admin)):
+    professor = ProfessorService(db).get(entity_id)
+    user = db.get(Usuario, professor.id)
+    if user.senha_hash:
+        return {"accepted": False, "delivered": False, "detail": "A conta já foi ativada."}
+    enforce_auth_limits(db, "admin-activation", [("ip", _request_ip(request), 10), ("email", professor.email, 3)], 60 * 60)
+    try:
+        sent = request_activation(professor.email, db)
+    except HTTPException:
+        sent = False
+    return {"accepted": True, "delivered": sent}
+
+
+@router.put("/admin/professores/{entity_id}", response_model=AdminProfessorResponse)
+def atualizar_professor_admin(entity_id: int, data: ProfessorUpdate, db: Db, _: str = Depends(require_admin)):
+    item = ProfessorService(db).update(entity_id, data)
+    return AdminProfessorResponse(**item.model_dump(), conta_ativada=bool(db.get(Usuario, item.id).senha_hash))
 
 
 @router.post(
@@ -352,28 +417,41 @@ def historico_creditos_semestrais(
 
 # VANTAGENS
 
+@router.get("/vantagens/catalogo", response_model=list[VantagemResponse])
+def listar_catalogo_vantagens(db: Db, actor: Usuario = Depends(require_role("ALUNO"))):
+    return VantagemService(db).list(apenas_ativas=True)
+
+
+@router.get("/vantagens/minhas", response_model=list[VantagemResponse])
+def listar_minhas_vantagens(db: Db, actor: Usuario = Depends(require_role("EMPRESA"))):
+    return VantagemService(db).list(empresa_id=actor.id)
+
 @router.get(
     "/vantagens",
     response_model=list[VantagemResponse],
 )
 def listar_vantagens(
     db: Db,
-    actor: Usuario = Depends(current_user),
+    actor: Usuario = Depends(require_role("ALUNO", "EMPRESA")),
     apenas_ativas: bool = Query(False),
     empresa_id: int | None = Query(None, gt=0),
 ):
-    return VantagemService(db).list(
-        apenas_ativas,
-        empresa_id,
-    )
+    service = VantagemService(db)
+    if actor.tipo == "ALUNO":
+        return service.list(apenas_ativas=True)
+    # empresa_id from the query is deliberately ignored; ownership comes from JWT.
+    return service.list(apenas_ativas=apenas_ativas, empresa_id=actor.id)
 
 
 @router.get(
     "/vantagens/{entity_id}",
     response_model=VantagemResponse,
 )
-def obter_vantagem(entity_id: int, db: Db, actor: Usuario = Depends(current_user)):
-    return VantagemService(db).get(entity_id)
+def obter_vantagem(entity_id: int, db: Db, actor: Usuario = Depends(require_role("ALUNO", "EMPRESA"))):
+    service = VantagemService(db)
+    if actor.tipo == "EMPRESA":
+        return service.get_for_company(entity_id, actor.id)
+    return service.get_for_catalog(entity_id)
 
 
 @router.post(
@@ -382,8 +460,7 @@ def obter_vantagem(entity_id: int, db: Db, actor: Usuario = Depends(current_user
     status_code=status.HTTP_201_CREATED,
 )
 def criar_vantagem(data: VantagemCreate, db: Db, actor: Usuario = Depends(require_role("EMPRESA"))):
-    data.empresa_id = actor.id
-    return VantagemService(db).create(data)
+    return VantagemService(db).create(data, actor.id)
 
 
 @router.put(
@@ -396,9 +473,7 @@ def atualizar_vantagem(
     db: Db,
     actor: Usuario = Depends(require_role("EMPRESA")),
 ):
-    item = VantagemService(db).get(entity_id)
-    if item.empresa_id != actor.id: raise HTTPException(403, "Acesso negado")
-    return VantagemService(db).update(entity_id, data)
+    return VantagemService(db).update(entity_id, data, actor.id)
 
 
 @router.post(
@@ -406,9 +481,18 @@ def atualizar_vantagem(
     response_model=VantagemResponse,
 )
 def desativar_vantagem(entity_id: int, db: Db, actor: Usuario = Depends(require_role("EMPRESA"))):
-    item = VantagemService(db).get(entity_id)
-    if item.empresa_id != actor.id: raise HTTPException(403, "Acesso negado")
-    return VantagemService(db).desativar(entity_id)
+    return VantagemService(db).desativar(entity_id, actor.id)
+
+
+@router.post("/vantagens/{entity_id}/ativar", response_model=VantagemResponse)
+def ativar_vantagem(entity_id: int, db: Db, actor: Usuario = Depends(require_role("EMPRESA"))):
+    return VantagemService(db).ativar(entity_id, actor.id)
+
+
+@router.delete("/vantagens/{entity_id}", status_code=status.HTTP_204_NO_CONTENT)
+def excluir_vantagem(entity_id: int, db: Db, actor: Usuario = Depends(require_role("EMPRESA"))):
+    VantagemService(db).delete(entity_id, actor.id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # RESGATES
@@ -434,8 +518,7 @@ def consultar_cupom(
     db: Db,
     actor: Usuario = Depends(require_role("EMPRESA")),
 ):
-    data.empresa_id = actor.id
-    return CupomService(db).consultar(data)
+    return CupomService(db).consultar(data, actor.id)
 
 
 @router.post(
@@ -447,5 +530,4 @@ def validar_cupom(
     db: Db,
     actor: Usuario = Depends(require_role("EMPRESA")),
 ):
-    data.empresa_id = actor.id
-    return CupomService(db).validar(data)
+    return CupomService(db).validar(data, actor.id)

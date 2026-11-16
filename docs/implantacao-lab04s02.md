@@ -6,8 +6,8 @@ Os arquivos de configuração para Render e Vercel estão preparados. O serviço
 
 ## Validacao deste workspace
 
-- Backend: `python -m pytest -q` — 37 passed.
-- Frontend: `npm test` — 9 passed; `npm run build` — sucesso.
+- Backend: `python -m pytest -q` — 43 passed (inclui isolamento de vantagens/cupons entre empresas e preservação de histórico).
+- Frontend: `npm test` — 19 passed; `npm run build` — sucesso.
 - Alembic: a cadeia completa foi aplicada no teste SQLite descartavel, que confirmou a preservacao do usuario legado sem senha.
 - PostgreSQL isolado: nao executado; `psql` nao esta instalado e o daemon Docker nao respondeu (`open //./pipe/docker_engine: The system cannot find the file specified`).
 - PlantUML 1.2026.10: renderizados os quatro diagramas de sequencia, a visao geral de interacao e o diagrama de implantacao. As imagens PNG ficam ao lado das fontes editaveis.
@@ -22,10 +22,12 @@ Configure no Render, em variáveis privadas:
 - `DATABASE_URL`: URL do Neon no formato `postgresql+psycopg://.../neondb?sslmode=require`
 - `JWT_SECRET`: segredo aleatório forte (pelo menos 32 bytes)
 - `ADMIN_CRON_TOKEN`: segredo distinto de `JWT_SECRET`
+- `ADMIN_UI_USERNAME`: nome da conta que acessa `/admin/login`
+- `ADMIN_UI_PASSWORD_HASH`: hash Argon2 da senha administrativa; gere localmente com `Set-Location backend; python scripts/hash_admin_password.py` e configure como segredo do Render
 - `CORS_ORIGINS`: origem exata do frontend publicado, sem `*`
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`: provedor de e-mail; sem SMTP, ativações não são entregues e seus grants são invalidados
 
-O endpoint de professor sempre exige `X-Admin-Token`, mesmo em `APP_ENV=development`. Execute-o apenas por uma operação administrativa autenticada fora do navegador. Não coloque essa credencial no React/Vercel.
+O endpoint interno `POST /api/professores` sempre exige `X-Admin-Token`, mesmo em `APP_ENV=development`. A interface institucional usa `/api/admin/professores` com sessão JWT administrativa: configure usuário e hash Argon2 no backend, e nunca coloque `ADMIN_CRON_TOKEN` no React/Vercel. Contas pré-cadastradas ficam sem senha até o professor usar o convite de ativação enviado ao e-mail registrado.
 
 ### Migration manual e controlada
 

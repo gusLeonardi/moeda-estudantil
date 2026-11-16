@@ -1,20 +1,39 @@
 @startuml
-title Transferência de moedas — Conquista
+title Transferencia de moedas do professor para aluno
+autonumber
 actor Professor
-boundary Frontend
-control Router
+boundary "Frontend React" as UI
+control "API FastAPI / Router" as API
 control AuthService
 control MoedasService
-entity Repository
-database PostgreSQL
+entity MoedasRepository
+database PostgreSQL as DB
 participant SMTP
-Professor -> Frontend: aluno, valor e justificativa
-Frontend -> Router: POST /moedas/transferencias + JWT
-Router -> AuthService: validar assinatura, expiração e PROFESSOR
-Router -> MoedasService: transferir(id professor extraído do JWT)
-MoedasService -> Repository: débito condicional, crédito e registro
-Repository -> PostgreSQL: transação atômica
-PostgreSQL --> Repository: commit ou rollback
-MoedasService -> SMTP: notificar aluno após commit
-MoedasService --> Frontend: resultado
+
+Professor -> UI: Informa aluno, quantidade e justificativa
+UI -> API: POST /moedas/transferencias + JWT
+API -> AuthService: Valida assinatura, expiracao e perfil PROFESSOR
+alt JWT invalido/expirado ou perfil incorreto
+  API --> UI: 401/403
+else Professor autenticado
+  API -> MoedasService: Substitui professor_id pelo ID do JWT
+  MoedasService -> MoedasRepository: Valida professor e aluno
+  MoedasService -> MoedasRepository: Debita, credita e registra operacao
+  MoedasRepository -> DB: Operacao atomica/condicional
+  alt Saldo suficiente e destinatario valido
+    DB --> MoedasRepository: Commit
+    MoedasRepository --> MoedasService: Transferencia persistida
+    MoedasService -> SMTP: Notifica aluno apos commit (se configurado)
+    MoedasService --> API: Resultado
+    API --> UI: 201 + transferencia
+  else Saldo insuficiente ou destinatario inexistente
+    DB --> MoedasRepository: Nenhuma alteracao
+    MoedasService --> API: Conflito/nao encontrado
+    API --> UI: 409/404
+  end
+end
+note over API,MoedasService
+  A identidade de origem vem exclusivamente do JWT.
+  Extrato de professor/aluno exige o proprio perfil e ID.
+end note
 @enduml

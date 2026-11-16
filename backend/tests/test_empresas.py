@@ -22,6 +22,16 @@ def test_cnpj_e_email_duplicados(client, endereco):
     assert client.post("/api/empresas", json=empresa_payload(endereco, cnpj="11444777000161")).status_code == 409
 
 
+def test_cadastro_publico_de_empresa_recusa_jwt_autenticado(client, endereco):
+    created = client.post("/api/empresas", json=empresa_payload(endereco))
+    assert created.status_code == 201
+    token = client.post("/api/auth/login", json={"email": "contato@livraria.com", "senha": "Senha-Forte-Teste-123!"}).json()["access_token"]
+
+    second = empresa_payload(endereco, nome="Outra Empresa", email="outra@empresa.com", cnpj="11444777000161")
+    assert client.post("/api/empresas", json=second, headers={"Authorization": f"Bearer {token}"}).status_code == 403
+    assert client.put("/api/empresas/999", json={"nome": "Empresa alheia", "email": "x@empresa.com", "telefone": "3133334444", "endereco": endereco}, headers={"Authorization": f"Bearer {token}"}).status_code == 403
+
+
 def test_validacoes_busca_e_campos_protegidos(client, endereco):
     assert client.post("/api/empresas", json=empresa_payload(endereco, cnpj="12345678000199")).status_code == 422
     created = client.post("/api/empresas", json=empresa_payload(endereco)).json()

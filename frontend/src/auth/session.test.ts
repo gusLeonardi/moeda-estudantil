@@ -22,4 +22,10 @@ describe('session storage', () => {
     saveSession(value); clearSession();
     expect(readSession()).toBeNull();
   });
+
+  it('accepts an authenticated administrative session', () => {
+    const admin: Session = { access_token: 'admin-jwt', id: 0, nome: 'admin', tipo: 'ADMIN' };
+    saveSession(admin);
+    expect(readSession()).toEqual(admin);
+  });
 });

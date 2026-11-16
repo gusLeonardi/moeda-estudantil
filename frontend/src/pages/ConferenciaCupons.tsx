@@ -116,7 +116,6 @@ export function ConferenciaCupons() {
 
     try {
       const resultado = await consultarCupom({
-        empresa_id: id,
         codigo_cupom: codigo,
       });
 
@@ -147,7 +146,6 @@ export function ConferenciaCupons() {
 
     try {
       const resultado = await validarCupom({
-        empresa_id: cupom.empresa_id,
         codigo_cupom: cupom.codigo_cupom,
       });
 
@@ -158,7 +156,6 @@ export function ConferenciaCupons() {
 
       try {
         const atualizado = await consultarCupom({
-          empresa_id: cupom.empresa_id,
           codigo_cupom: cupom.codigo_cupom,
         });
 

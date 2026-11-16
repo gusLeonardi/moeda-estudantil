@@ -1,59 +1,57 @@
 @startuml
-title Authentication and legacy account activation
-actor User
-boundary ReactFrontend
-control AuthRouter
-control RateLimitService
-control AuthService
-database PostgreSQL
-participant SMTP
+title Autenticacao e ativacao de conta antiga
+autonumber
+actor Usuario
+boundary "Frontend React" as UI
+control "API FastAPI / Auth Router" as API
+control "Rate limit + Auth Service" as Auth
+database PostgreSQL as DB
+participant "SMTP configurado" as SMTP
 
-User -> ReactFrontend: Submit email and password
-ReactFrontend -> AuthRouter: POST /auth/login
-AuthRouter -> RateLimitService: Check IP and email windows
-RateLimitService -> PostgreSQL: Atomic counter upsert
-PostgreSQL --> RateLimitService: Attempt count
-alt Login limit exceeded
-  RateLimitService --> AuthRouter: HTTP 429 + Retry-After
-  AuthRouter --> ReactFrontend: Generic rate limit response
-else Within limit
-  AuthRouter -> AuthService: Authenticate credentials
-  AuthService -> PostgreSQL: Find user by email
-  PostgreSQL --> AuthService: User record and Argon2 hash
-  alt Password valid
-    AuthService --> AuthRouter: User and role
-    AuthRouter --> ReactFrontend: HS256 JWT (30 min) and profile
-  else Invalid credentials
-    AuthService --> AuthRouter: HTTP 401
-    AuthRouter --> ReactFrontend: Generic credential error
+Usuario -> UI: Informa e-mail e senha
+UI -> API: POST /auth/login
+API -> Auth: Limita por IP/e-mail
+Auth -> DB: Incrementa contadores atomicos
+alt Limite excedido
+  API --> UI: 429 + Retry-After
+else Dentro do limite
+  API -> Auth: authenticate(email, senha)
+  Auth -> DB: Consulta usuario e hash
+  DB --> Auth: Perfil + hash Argon2
+  alt Conta ativa e senha valida
+    Auth --> API: Usuario autenticado
+    API --> UI: JWT HS256 (30 min) + id/nome/perfil
+  else Credencial invalida ou conta sem senha
+    API --> UI: 401 generico
   end
 end
 
-opt Legacy account without a password
-  User -> ReactFrontend: Request account activation
-  ReactFrontend -> AuthRouter: POST /auth/activation/request
-  AuthRouter -> RateLimitService: Check IP and email windows
-  RateLimitService -> PostgreSQL: Atomic counter upsert
-  AuthRouter -> AuthService: Request activation grant
-  AuthService -> PostgreSQL: Find eligible legacy account
-  alt Account eligible
-    AuthService -> PostgreSQL: Store SHA-256 token hash and 15 min expiry
-    AuthService -> SMTP: Send one-time token to registered email
-    alt SMTP delivery failed
-      AuthService -> PostgreSQL: Delete unusable grant
-      AuthService -> AuthRouter: Record delivery failure without token
-    else SMTP delivery succeeded
-      AuthService --> AuthRouter: Grant delivered
+opt Ativacao de conta legada (sem senha)
+  Usuario -> UI: Solicita envio do token
+  UI -> API: POST /auth/activation/request (e-mail)
+  API -> Auth: Limite por IP/e-mail; resposta nao enumeravel
+  Auth -> DB: Localiza conta elegivel
+  alt Conta elegivel
+    Auth -> DB: Grava hash SHA-256 + expiracao de 15 min
+    Auth -> SMTP: Envia token para e-mail cadastrado
+    alt Falha na entrega
+      Auth -> DB: Invalida grant pendente
+    else Entregue
+      SMTP --> Usuario: Token temporario no e-mail cadastrado
     end
-  else No eligible account
-    AuthService --> AuthRouter: No grant created; do not reveal account state
+  else Conta inexistente ou ja ativada
+    Auth -> Auth: Nao cria grant; nao revela estado
   end
-  AuthRouter --> ReactFrontend: Same generic response for all accounts
-  User -> ReactFrontend: Enter email, token and new password
-  ReactFrontend -> AuthRouter: POST /auth/activation/complete
-  AuthRouter -> AuthService: Validate token and password
-  AuthService -> PostgreSQL: Consume grant atomically and store Argon2 hash
-  PostgreSQL --> AuthService: Commit or reject expired/reused token
-  AuthService --> ReactFrontend: 204 or generic activation error
+  API --> UI: 202 + mensagem generica
+  Usuario -> UI: Envia e-mail, token e nova senha
+  UI -> API: POST /auth/activation/complete
+  API -> Auth: Confere token, senha e elegibilidade
+  Auth -> DB: Consome token atomicamente e grava hash Argon2
+  alt Token valido, dentro do prazo e nao usado
+    DB --> Auth: Commit; token invalido para novo uso
+    API --> UI: 204
+  else Invalido, expirado, reutilizado ou conta ativa
+    API --> UI: Erro generico; sem alteracao de credencial
+  end
 end
 @enduml
