@@ -1,82 +1,168 @@
-# Lab04S02 — Preparação de implantação
+# Lab04S02 — Implantação do Conquista
 
-## Estado
+## Estado da implantação
 
-Os arquivos de configuração para Render e Vercel estão preparados. O serviço ainda não foi publicado e nenhuma URL pública foi verificada. O Neon não foi migrado. O diagrama em `docs/modelagem/lab04-diagrama-implantacao.puml` marca os provedores como planejados.
+O Conquista está publicado em produção. O frontend e o backend foram implantados com sucesso, e a aplicação foi acessada e testada manualmente.
 
-## Validacao deste workspace
+| Componente | Serviço | Endereço |
+|---|---|---|
+| Frontend React, TypeScript e Vite | Render Static Site, plano gratuito | [https://conquista-front.onrender.com](https://conquista-front.onrender.com) |
+| API FastAPI | Render Web Service, plano gratuito | [https://conquista-api-dzln.onrender.com](https://conquista-api-dzln.onrender.com) |
+| Verificação de saúde da API | Endpoint público | [https://conquista-api-dzln.onrender.com/health](https://conquista-api-dzln.onrender.com/health) |
+| Documentação interativa da API | Swagger | [https://conquista-api-dzln.onrender.com/docs](https://conquista-api-dzln.onrender.com/docs) |
+| Banco de dados | PostgreSQL no Neon | Acesso privado pelo backend |
 
-- Backend: `python -m pytest -q` — 43 passed (inclui isolamento de vantagens/cupons entre empresas e preservação de histórico).
-- Frontend: `npm test` — 19 passed; `npm run build` — sucesso.
-- Alembic: a cadeia completa foi aplicada no teste SQLite descartavel, que confirmou a preservacao do usuario legado sem senha.
-- PostgreSQL isolado: nao executado; `psql` nao esta instalado e o daemon Docker nao respondeu (`open //./pipe/docker_engine: The system cannot find the file specified`).
-- PlantUML 1.2026.10: renderizados os quatro diagramas de sequencia, a visao geral de interacao e o diagrama de implantacao. As imagens PNG ficam ao lado das fontes editaveis.
+O Render hospeda os dois serviços da aplicação. O arquivo `render.yaml` descreve o serviço Web da API. A configuração do Static Site é mantida no painel do Render. O arquivo `frontend/vercel.json` também existe no repositório, mas não representa a hospedagem atualmente publicada.
 
-## Render — API FastAPI
+O diagrama `docs/modelagem/lab04-diagrama-implantacao.puml` foi produzido como diagrama da arquitetura planejada do Lab04 e mantém os provedores identificados como planejados. Ele não foi alterado nesta atualização; para consultar os endereços e serviços efetivos, use esta seção.
 
-O Blueprint `render.yaml` aponta o serviço para `backend/`, instala `requirements.txt`, inicia Uvicorn na porta `$PORT`, desativa deploy automático e verifica `/health`. As migrations ficam fora do comando de inicialização para evitar alterações silenciosas no banco compartilhado.
+## Arquitetura implantada
 
-Configure no Render, em variáveis privadas:
+```text
+Navegador
+  ├── HTTPS → Render Static Site (React/Vite)
+  └── HTTPS/JSON + Bearer JWT → Render Web Service (FastAPI/Uvicorn)
+                                  ├── PostgreSQL com TLS → Neon
+                                  └── SMTP autenticado → provedor configurado (opcional)
+```
 
-- `APP_ENV=production`
-- `DATABASE_URL`: URL do Neon no formato `postgresql+psycopg://.../neondb?sslmode=require`
-- `JWT_SECRET`: segredo aleatório forte (pelo menos 32 bytes)
-- `ADMIN_CRON_TOKEN`: segredo distinto de `JWT_SECRET`
-- `ADMIN_UI_USERNAME`: nome da conta que acessa `/admin/login`
-- `ADMIN_UI_PASSWORD_HASH`: hash Argon2 da senha administrativa; gere localmente com `Set-Location backend; python scripts/hash_admin_password.py` e configure como segredo do Render
-- `CORS_ORIGINS`: origem exata do frontend publicado, sem `*`
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`: provedor de e-mail; sem SMTP, ativações não são entregues e seus grants são invalidados
+O frontend é servido como arquivos estáticos pelo Render. Durante o build, `VITE_API_URL` define o endereço base da API (`https://conquista-api-dzln.onrender.com/api`). As requisições da aplicação usam HTTPS, JSON e, nas rotas protegidas, o JWT no cabeçalho `Authorization: Bearer`.
 
-O endpoint interno `POST /api/professores` sempre exige `X-Admin-Token`, mesmo em `APP_ENV=development`. A interface institucional usa `/api/admin/professores` com sessão JWT administrativa: configure usuário e hash Argon2 no backend, e nunca coloque `ADMIN_CRON_TOKEN` no React/Vercel. Contas pré-cadastradas ficam sem senha até o professor usar o convite de ativação enviado ao e-mail registrado.
+O backend obtém a URL de conexão pelo segredo `DATABASE_URL` configurado no Render. A conexão usa o driver `psycopg` e TLS exigido por `sslmode=require` (ou nível superior). O backend também pode enviar mensagens de ativação e notificações pelo serviço SMTP, quando suas variáveis estiverem configuradas.
 
-### Migration manual e controlada
+## Resultado da publicação e validações
 
-Revise o SQL antes de apontar o comando para uma base compartilhada. A migration `20261116_0007` cria apenas a tabela de contadores de autenticação; a cadeia anterior cria a tabela de ativações. Não há drops ou alterações de dados existentes.
+- **Frontend:** build de produção e publicação no Render Static Site concluídos com sucesso.
+- **Backend:** publicação no Render Web Service concluída com sucesso; o serviço expõe `/health`.
+- **Verificação manual:** a aplicação publicada foi acessada e testada manualmente.
+- **Testes automatizados registrados no workspace:** `python -m pytest -q` — 43 aprovados; `npm test` — 19 aprovados; `npm run build` — concluído com sucesso. Esses números são os resultados documentados da validação do projeto, não uma execução feita durante esta atualização.
+- **Migrações:** a cadeia foi aplicada em uma base SQLite descartável para validar a migração e a preservação de uma conta legada sem senha. Não há, neste documento, registro verificável de execução de migrações no Neon. O teste de migração em PostgreSQL isolado não foi realizado no workspace documentado: `psql` não estava instalado e o Docker não iniciou (`open //./pipe/docker_engine: The system cannot find the file specified`).
+- **PlantUML:** os oito arquivos `.puml` de `docs/modelagem` foram renderizados em PNG e verificados quanto à sintaxe e apresentação; o PDF consolidado está em `output/pdf/conquista-lab04-diagramas-uml.pdf`.
+
+Os resultados automatizados acima são registros anteriores desta validação do workspace. A confirmação de build, publicação e teste manual dos dois serviços corresponde ao estado de produção informado pela equipe.
+
+## Render Web Service — API FastAPI
+
+O serviço descrito em `render.yaml` usa `backend/` como diretório raiz, instala `backend/requirements.txt`, inicia o Uvicorn na porta fornecida por `$PORT` e verifica o endpoint `/health`. O comando de inicialização é:
+
+```sh
+uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers
+```
+
+As migrações Alembic não são executadas automaticamente no comando de inicialização. Essa separação evita alterações de esquema não revisadas durante o reinício do serviço.
+
+### Variáveis privadas do backend
+
+Configure no ambiente do Render, sem adicionar os valores ao repositório:
+
+| Variável | Finalidade |
+|---|---|
+| `APP_ENV` | Definir `production` para aplicar as verificações de configuração de produção. |
+| `DATABASE_URL` | URL privada de conexão ao PostgreSQL Neon, com `sslmode=require` ou superior. |
+| `JWT_SECRET` | Segredo aleatório forte para assinatura dos JWTs; mínimo de 32 bytes. |
+| `ADMIN_CRON_TOKEN` | Segredo interno distinto de `JWT_SECRET`, também com mínimo de 32 bytes. Não é enviado ao frontend. |
+| `ADMIN_UI_USERNAME` | Nome da conta administrativa institucional. |
+| `ADMIN_UI_PASSWORD_HASH` | Hash Argon2 da senha administrativa; não configure a senha em texto puro. |
+| `CORS_ORIGINS` | Origens HTTPS explícitas permitidas, incluindo `https://conquista-front.onrender.com`; não use `*`. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Dados do provedor de e-mail. São opcionais para iniciar a API; os fluxos de e-mail dependem da configuração. |
+
+Para gerar o hash Argon2 da senha administrativa localmente, no PowerShell:
 
 ```powershell
 Set-Location .\backend
-$env:DATABASE_URL = "postgresql+psycopg://<usuario>:<senha>@<host>/<database>?sslmode=require"
-..\.venv\Scripts\alembic.exe upgrade head
+..\.venv\Scripts\python.exe .\scripts\hash_admin_password.py
 ```
 
-Execute primeiro contra um banco PostgreSQL isolado e somente depois de aprovação explícita para o banco compartilhado. Nunca copie a URL real para o repositório, terminal compartilhado ou logs.
+Configure a saída somente como valor privado do backend no Render. Nunca publique segredos nos logs, no frontend, no histórico do terminal ou no Git.
 
-## Vercel — frontend React
+O endpoint interno `POST /api/professores` e o endpoint de crédito semestral exigem `X-Admin-Token`, comparado com `ADMIN_CRON_TOKEN`. O gerenciamento de professores pela interface administrativa usa uma conta administrativa separada, autenticada por JWT. Não use o token de cron no navegador.
 
-Configure a raiz do projeto como `frontend/`. O `frontend/vercel.json` define `npm ci`, `npm run build`, saída `dist`, fallback SPA para `index.html` e cabeçalhos básicos. Configure `VITE_API_URL=https://<url-do-render>/api` no painel da Vercel para Preview e Production; a variável é incorporada ao bundle e não pode conter segredo.
+## Render Static Site — frontend React/Vite
 
-Após publicar o frontend, configure no Render `CORS_ORIGINS` com a URL de produção e, se necessário, uma URL de preview específica. Evite curingas.
+O serviço está publicado em `https://conquista-front.onrender.com`. Configure o diretório publicado como `frontend/`, o comando de instalação como `npm ci`, o comando de build como `npm run build` e a saída como `dist`.
+
+Configure a seguinte variável no ambiente de build do Static Site:
+
+```dotenv
+VITE_API_URL=https://conquista-api-dzln.onrender.com/api
+```
+
+`VITE_API_URL` é incorporada aos arquivos JavaScript gerados e, portanto, é pública. Ela deve conter apenas o endereço base da API, nunca senhas, tokens ou outras credenciais. As regras de navegação SPA e os cabeçalhos presentes em `frontend/vercel.json` são configuração do Vercel e não substituem a configuração efetiva do serviço Render.
+
+## CORS e comunicação entre serviços
+
+O backend usa `CORS_ORIGINS` como uma lista separada por vírgulas. Em produção, configure somente origens HTTPS necessárias, incluindo a origem do Static Site:
+
+```dotenv
+CORS_ORIGINS=https://conquista-front.onrender.com
+```
+
+Não inclua curingas. O frontend envia o JWT por `Authorization`; a API permite esse cabeçalho e os métodos HTTP utilizados pelo sistema. Para domínios de prévia, adicione somente origens específicas e necessárias.
 
 ## Neon — PostgreSQL
 
-Use a URL de conexão com TLS (`sslmode=require`) como `DATABASE_URL` secreto do Render. Confirme o branch/database escolhido antes de qualquer migration e mantenha backups/ponto de restauração conforme a política da conta. Nenhuma migration foi executada nesta entrega.
+O banco de produção é PostgreSQL no Neon. A URL deve permanecer como variável secreta do serviço backend no Render, usar o driver `postgresql+psycopg` e exigir TLS, por exemplo:
+
+```text
+postgresql+psycopg://<usuario>:<senha>@<host>/<banco>?sslmode=require
+```
+
+Os valores entre sinais `< >` são marcadores de exemplo e devem ser substituídos somente no painel privado do provedor. Antes de executar uma migration, confirme o banco e o branch Neon selecionados, revise a migration e tenha um plano de recuperação. Não execute comandos de migration contra produção apenas para validar o ambiente local.
+
+As migrations `20261116_0006` e `20261116_0007` adicionam, respectivamente, armazenamento de ativações temporárias e contadores de limitação de tentativas. A cadeia de migrations foi validada em SQLite descartável. Este documento não afirma que uma migração específica foi executada no Neon, pois não há registro verificável dessa execução.
+
+## SMTP e envio de e-mails
+
+O backend usa configuração SMTP por ambiente para enviar convites de ativação e notificações de operações. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` e `SMTP_FROM` no Render quando o envio estiver habilitado. Não registre valores secretos no repositório. Sem uma entrega SMTP bem-sucedida, tokens de ativação não são mantidos como convites utilizáveis e o fluxo administrativo permite nova tentativa de envio.
 
 ## Sessões e proteção
 
-O frontend guarda o JWT em `sessionStorage`, remove o valor antigo do `localStorage` e limpa a sessão no logout/401. Isso reduz a persistência entre sessões do navegador, mas o token continua acessível a JavaScript da origem: uma vulnerabilidade XSS pode roubá-lo enquanto a sessão estiver ativa. Portanto, mantenha dependências atualizadas, não renderize HTML não confiável, use HTTPS e aplique uma política CSP adequada ao domínio publicado. Uma evolução mais forte é mover a sessão para cookie `HttpOnly; Secure; SameSite` com proteção CSRF, o que exige alteração coordenada de CORS e autenticação.
+O frontend mantém o JWT em `sessionStorage`, remove a sessão no logout e limpa o token diante de resposta 401. O armazenamento temporário reduz a persistência entre sessões do navegador, mas não impede que código JavaScript da mesma origem acesse o token durante uma sessão. Uma vulnerabilidade XSS pode expô-lo. Use HTTPS, mantenha dependências atualizadas e não renderize HTML não confiável. Uma alternativa futura é uma sessão em cookie `HttpOnly; Secure; SameSite`, que exigiria mudanças coordenadas na autenticação e no CORS.
 
-## Limites de tentativas
+Login e solicitação de ativação usam contadores persistidos no PostgreSQL, por IP e e-mail normalizados; as chaves são protegidas por HMAC. Os limites configurados são 5 tentativas por e-mail e 20 por IP a cada 15 minutos no login, e 3 por e-mail e 10 por IP por hora na solicitação de ativação. Ao exceder o limite, a API responde com HTTP 429 e `Retry-After`. Em produção, o código prioriza o cabeçalho `CF-Connecting-IP`; não confia em `X-Forwarded-For` enviado pelo cliente para identificar a origem.
 
-Login e solicitação de ativação usam contadores PostgreSQL atômicos, limitados por endereço e por e-mail normalizados; as chaves persistidas são HMAC e não guardam e-mails/IPs em claro. Em produção Render, o código usa `CF-Connecting-IP`; o cabeçalho `X-Forwarded-For` não é confiável para identificar clientes. Os limites são 5 logins por e-mail e 20 por IP a cada 15 minutos; para ativação, 3 por e-mail e 10 por IP por hora. Ao atingir o limite, a API responde `429` com `Retry-After`.
+## Execução e validação local
 
-## Verificações locais
+Para executar os testes sem acessar os dados de produção:
 
 ```powershell
 Set-Location .\backend
 ..\.venv\Scripts\python.exe -m pytest -q
-..\.venv\Scripts\alembic.exe upgrade head
-..\.venv\Scripts\uvicorn.exe app.main:app --host 127.0.0.1 --port 8000
 
 Set-Location ..\frontend
+npm ci
 npm test
 npm run build
 ```
 
-Para validar migration PostgreSQL, use apenas uma instância/container temporário isolado, nunca a URL Neon compartilhada. Para verificar publicação, teste `/health` do Render e carregue o domínio Vercel, incluindo uma rota SPA recarregada diretamente.
+Para iniciar a API localmente, aplique as migrations somente a um banco local ou isolado e execute Uvicorn a partir de `backend/`:
+
+```powershell
+Set-Location .\backend
+..\.venv\Scripts\alembic.exe upgrade head
+..\.venv\Scripts\uvicorn.exe app.main:app --host 127.0.0.1 --port 8000
+```
+
+Para verificar a aplicação publicada, acesse o frontend, confira uma rota interna após recarregar a página e consulte `/health` no endereço da API. A publicação e os testes manuais descritos na seção de estado correspondem à confirmação da equipe; esta atualização documental não repetiu o teste externo.
+
+## Diagramas do Lab04
+
+Os fontes PlantUML editáveis e os PNGs ficam em `docs/modelagem/`:
+
+- `lab04-seq-autenticacao` — login e ativação de conta antiga;
+- `lab04-seq-transferencia` — transferência de moedas;
+- `lab04-seq-resgate` — resgate idempotente de vantagem;
+- `lab04-seq-cupom` — consulta e validação de cupom pela empresa proprietária;
+- `lab04-seq-admin-professores` — gerenciamento administrativo de professores;
+- `lab04-sequencias` — fluxos principais alternativos por perfil;
+- `lab04-visao-geral-interacao` — Diagrama de Visão Geral de Interação UML com decisões e referências às sequências;
+- `lab04-diagrama-implantacao` — arquitetura de implantação planejada, conforme explicado acima.
+
+O documento consolidado está em `output/pdf/conquista-lab04-diagramas-uml.pdf`.
 
 ## Referências de plataforma
 
-- [Render Blueprint specification](https://render.com/docs/blueprint-spec)
-- [Render health checks](https://render.com/docs/health-checks)
-- [Vercel `vercel.json`](https://vercel.com/docs/project-configuration/vercel-json)
-- [Cloudflare visitor IP headers](https://developers.cloudflare.com/fundamentals/reference/http-headers/)
+- [Render — especificação de Blueprints](https://render.com/docs/blueprint-spec);
+- [Render — verificações de integridade](https://render.com/docs/health-checks);
+- [Render — sites estáticos](https://render.com/docs/static-sites);
+- [Cloudflare — cabeçalhos de endereço IP](https://developers.cloudflare.com/fundamentals/reference/http-headers/).

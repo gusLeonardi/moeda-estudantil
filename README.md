@@ -1,362 +1,315 @@
 # Conquista — Sistema de Moeda Estudantil
 
-O **Conquista** é uma plataforma acadêmica para reconhecimento do mérito estudantil por meio de moedas virtuais. A proposta é permitir que professores reconheçam a participação e o desempenho dos alunos e que, futuramente, essas moedas sejam trocadas por produtos, descontos e outros benefícios oferecidos por empresas parceiras.
+O **Conquista** é uma aplicação acadêmica para reconhecimento do mérito estudantil por meio de moedas virtuais. Professores podem reconhecer a participação e o desempenho dos alunos; alunos podem usar o saldo para resgatar vantagens oferecidas por empresas parceiras.
 
-O projeto é desenvolvido na disciplina **Projeto de Software**, do curso de **Engenharia de Software da PUC Minas**, sob orientação da professora **Milena Menezes Adão**.
+Projeto desenvolvido na disciplina **Projeto de Software**, do curso de **Engenharia de Software da PUC Minas**, sob orientação da professora **Milena Menezes Adão**.
 
-## Objetivo
+## Situação do projeto
 
-Construir uma aplicação web que conecte alunos, professores, instituições de ensino e empresas parceiras em um ecossistema de reconhecimento acadêmico. O desenvolvimento está dividido em três sprints:
+As entregas das Sprints 1, 2 e 3 e do Lab04 (Release 02) estão implementadas. O sistema conta com autenticação e autorização por perfil, operações financeiras, vantagens, cupons, administração institucional de professores e documentação UML.
 
-- **Sprint 1:** levantamento de requisitos e modelagem UML;
-- **Sprint 2:** modelo ER, estratégia de persistência e CRUDs iniciais de alunos e empresas parceiras;
-- **Sprint 3:** finalização dos CRUDs de alunos e empresas, arquitetura, persistência e apresentação.
+O sistema está publicado em produção. Os endereços estão na seção [Sistema em Produção](#sistema-em-produção).
 
-Este repositório contém a implementação da **Sprint 3 — Lab03S03**.
+## Histórico das entregas
 
-## Funcionalidades
+- **Sprint 1:** levantamento de requisitos e modelagem UML.
+- **Sprint 2:** modelo Entidade-Relacionamento, persistência e CRUDs iniciais de alunos e empresas parceiras.
+- **Sprint 3 — Lab03S03:** conclusão dos CRUDs, arquitetura em camadas, persistência e apresentação.
+- **Release 02 — Lab04S01:** autenticação, autorização, isolamento de dados, fluxos financeiros, ativação de contas antigas e diagramas UML.
+- **Release 02 — Lab04S02:** preparação de configuração de implantação, documentação e diagrama de implantação.
 
-### Entregues na Sprint 3
+## Funcionalidades por perfil
 
-- dashboard inicial com indicadores obtidos da API;
-- cadastro, listagem, busca, consulta, edição e exclusão de alunos;
-- cadastro, listagem, busca, consulta, edição e exclusão de empresas parceiras;
-- seleção de instituições de ensino pré-cadastradas no banco;
-- validação de CPF, CNPJ, e-mail e campos obrigatórios no front-end e no back-end;
-- unicidade de CPF, CNPJ e e-mail;
-- CPF e CNPJ não editáveis após o cadastro;
-- saldo inicial do aluno igual a zero e protegido contra edição cadastral;
-- confirmação antes da exclusão de registros;
-- persistência com PostgreSQL e migrações Alembic;
-- integração entre o cliente React e a API FastAPI;
-- tratamento visual de carregamento, erros e listas vazias.
-- cadastro administrativo de professores com saldo inicial de 1.000 moedas;
-- distribuição atômica de moedas para alunos;
-- extratos de professores e alunos;
-- cadastro e desativação de vantagens;
-- resgate com débito atômico, idempotência e cupom único;
-- catálogo e apresentação do cupom na interface.
+### Aluno
 
-### Limitações conhecidas
+- Cadastro público de visitante com senha e validações de dados.
+- Consulta e edição do próprio perfil e do próprio extrato.
+- Consulta do catálogo de vantagens ativas.
+- Resgate de vantagem, com débito transacional e geração de cupom.
+- Consulta do histórico de movimentações e dos cupons recebidos.
 
-- autenticação e controle de acesso por perfil;
-- validação presencial do uso do cupom;
-- notificações por e-mail;
-- crédito semestral de moedas aos professores.
+O aluno autenticado não pode criar outra conta nem consultar ou alterar dados privados de outros alunos.
 
-> Os fluxos financeiros foram implementados exclusivamente para demonstração local. Como ainda não há autenticação ou autorização, a API não deve ser publicada nem usada com dados reais.
+### Professor
 
-## Tecnologias
+- Conta pré-cadastrada pela instituição; não há cadastro público de professores.
+- Consulta de alunos para apoiar os fluxos acadêmicos, sem permissão para editar seus cadastros.
+- Transferência de moedas para alunos e consulta do próprio extrato.
+- Consulta do histórico de créditos semestrais e dos indicadores disponíveis ao perfil.
 
-| Camada | Tecnologias |
-|---|---|
-| Front-end | React, TypeScript, Vite, Tailwind CSS, Axios, React Router, React Hook Form, Zod e Lucide React |
-| Back-end | Python 3.13, FastAPI, SQLAlchemy 2, Pydantic, Alembic, psycopg 3 e Uvicorn |
-| Banco de dados | PostgreSQL hospedado no Neon |
-| Testes | pytest, FastAPI TestClient, Vitest, Testing Library e jsdom |
+O saldo inicial do professor é de **1.000 moedas**. Cada crédito semestral acrescenta **1.000 moedas**, com registro por professor, ano e semestre para impedir duplicidade.
 
-## Arquitetura
+### Empresa parceira
 
-O sistema utiliza um front-end React independente como camada de apresentação e uma API REST em FastAPI:
+- Cadastro público para visitantes, com senha e validação dos dados empresariais.
+- Consulta e edição do próprio perfil.
+- Criação e gerenciamento das próprias vantagens, incluindo ativação, desativação e exclusão quando não há resgates associados.
+- Consulta e validação dos cupons emitidos para suas vantagens.
+
+As imagens das vantagens usam URL externa validada. Cada vantagem tem uma empresa proprietária; empresas não podem gerenciar vantagens nem consultar cupons de outras empresas.
+
+### Administrador institucional
+
+- Acesso por tela administrativa com credenciais provisionadas no servidor.
+- Cadastro, listagem, pesquisa, consulta e edição de professores.
+- Pré-cadastro sem senha e envio ou reenvio de convite para ativação.
+
+Não há autocadastro administrativo. A credencial administrativa é distinta do token interno usado para operações de cron.
+
+## Regras de negócio principais
+
+- Senhas são armazenadas com hash Argon2; novas senhas devem ter ao menos 12 caracteres.
+- Tokens JWT são assinados com HS256, têm validade limitada e carregam o perfil do usuário. Os endpoints também verificam o perfil e a identidade no servidor.
+- Transferências e resgates são processados em transações para evitar saldo parcial ou negativo. A origem da transferência e o aluno do resgate são derivados do JWT, não dos identificadores enviados pelo navegador.
+- Uma chave de idempotência impede que uma repetição do mesmo pedido de resgate faça outro débito. Cada resgate gera um cupom único.
+- Uma empresa só consulta ou valida cupons vinculados a vantagens de sua propriedade; um cupom só pode ser utilizado uma vez.
+- O histórico é preservado: vantagens com resgates associados não podem ser excluídas e devem ser desativadas.
+- Créditos semestrais são idempotentes por professor e período.
+- Contas antigas sem senha podem solicitar ativação. O token é enviado ao e-mail já cadastrado, armazenado no banco somente como hash, expira em 15 minutos e é invalidado após o uso. Informar apenas CPF ou e-mail não ativa uma conta.
+- Login, solicitação de ativação e operações administrativas de provisionamento têm limitação de tentativas armazenada no banco.
+- O token administrativo de cron (`ADMIN_CRON_TOKEN`) é validado somente pelo back-end e não é enviado ao navegador.
+
+## Arquitetura e tecnologias
 
 ```text
-React → FastAPI Routers → Services → Repositories → SQLAlchemy → PostgreSQL
+Navegador (React/Vite) → API REST (FastAPI) → Services → Repositories → SQLAlchemy → PostgreSQL (Neon)
 ```
 
-As responsabilidades estão separadas da seguinte forma:
+| Camada | Tecnologias e responsabilidades |
+|---|---|
+| Interface web | React 18, TypeScript, Vite, Tailwind CSS, React Router, React Hook Form, Zod, Axios e Lucide React |
+| API | Python, FastAPI, Pydantic e Uvicorn |
+| Regras de negócio | Services para autenticação, autorização, saldos, vantagens, resgates e cupons |
+| Persistência | Repositories, SQLAlchemy 2, PostgreSQL e psycopg 3 |
+| Migrações | Alembic |
+| Testes | pytest, FastAPI TestClient, Vitest, Testing Library e jsdom |
+| Hospedagem de produção | Render para a interface e a API; PostgreSQL no Neon |
 
-- **React:** interface, navegação, formulários e feedback ao usuário;
-- **Routers:** entrada HTTP, injeção de dependências e definição das respostas;
-- **Services:** regras de negócio e controle das transações;
-- **Repositories:** consultas e operações de acesso a dados;
-- **SQLAlchemy:** mapeamento objeto-relacional e persistência;
-- **Alembic:** evolução versionada do schema do banco de dados.
+Os routers tratam HTTP e dependências; os services aplicam regras de negócio e coordenam transações; os repositories concentram consultas e operações de persistência. No modelo MVC acadêmico, o React corresponde à View, os routers ao Controller e as entidades e camadas de domínio ao Model.
 
-Essa organização adapta o padrão MVC definido na modelagem acadêmica: a **View** é implementada pelo cliente React, o **Controller** pelos routers do FastAPI e o **Model** pelas entidades, services e repositories. Não são utilizados templates Jinja2.
+## Sistema em Produção
 
-## Estrutura do projeto
+- **Aplicação web — React, TypeScript e Vite:** [https://conquista-front.onrender.com](https://conquista-front.onrender.com)
+- **API — FastAPI:** [https://conquista-api-dzln.onrender.com](https://conquista-api-dzln.onrender.com)
+- **Verificação de saúde da API:** [https://conquista-api-dzln.onrender.com/health](https://conquista-api-dzln.onrender.com/health)
+- **Documentação interativa da API:** [https://conquista-api-dzln.onrender.com/docs](https://conquista-api-dzln.onrender.com/docs)
+- **Banco de dados:** PostgreSQL no Neon.
+- **Hospedagem:** Render, plano gratuito.
+
+As credenciais de produção são configuradas nos painéis dos provedores e não fazem parte deste repositório. O frontend acessa a API pela variável pública `VITE_API_URL`; essa variável não deve conter segredos.
+
+## Estrutura do repositório
 
 ```text
 moeda-estudantil/
 ├── backend/
-│   ├── alembic/
-│   │   └── versions/
+│   ├── alembic/versions/       # Migrações do banco
 │   ├── app/
-│   │   ├── core/
-│   │   ├── database/
-│   │   ├── models/
-│   │   ├── repositories/
-│   │   ├── routers/
-│   │   ├── schemas/
-│   │   ├── services/
-│   │   └── main.py
-│   ├── tests/
-│   ├── alembic.ini
+│   │   ├── core/               # Configurações
+│   │   ├── database/           # Conexão e dados iniciais
+│   │   ├── models/             # Entidades SQLAlchemy
+│   │   ├── repositories/       # Acesso a dados
+│   │   ├── routers/            # Endpoints FastAPI
+│   │   ├── schemas/            # Validação e respostas
+│   │   └── services/           # Regras de negócio
+│   ├── scripts/                # Ferramentas administrativas locais
+│   ├── tests/                  # Testes automatizados
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
+│   │   ├── auth/               # Sessão e rotas protegidas
 │   │   ├── components/
-│   │   ├── hooks/
 │   │   ├── pages/
 │   │   ├── routes/
-│   │   ├── services/
-│   │   ├── styles/
-│   │   ├── test/
-│   │   └── types/
+│   │   └── services/           # Integração com a API
 │   ├── .env.example
 │   ├── package.json
-│   ├── package-lock.json
-│   └── vite.config.ts
+│   └── vercel.json             # Regras de build e navegação SPA
 ├── docs/
+│   ├── modelagem/              # Fontes PlantUML e imagens
+│   ├── implantacao-lab04s02.md
 │   ├── arquitetura.md
-│   ├── modelo-er.md
-│   └── modelo-er.mmd
+│   └── modelo-er.md
+├── render.yaml                 # Serviço da API no Render
 ├── .env.example
-├── .gitignore
-├── Lab03S01-modelagem.pdf
-├── LABORATORIO_3_LAB_DESENVOLVIMENTO_DE_SOFTWARE.pdf
 └── README.md
 ```
 
-## Pré-requisitos
+## Execução local
 
-Antes de iniciar, instale ou obtenha acesso a:
+As instruções abaixo usam Windows PowerShell. Requisitos: Git, Python 3.13, Node.js 22 com npm e um banco PostgreSQL. Para desenvolvimento, pode-se usar um banco local isolado ou uma instância própria do Neon. **Não use a base de produção para testes ou migrações locais.**
 
-- [Git](https://git-scm.com/);
-- Python 3.13;
-- Node.js 22 e npm;
-- uma instância PostgreSQL, preferencialmente no [Neon](https://neon.tech/).
+### 1. Preparar o back-end
 
-## Como executar localmente
-
-Os comandos abaixo foram preparados para **Windows PowerShell**.
-
-### 1. Clonar o repositório
-
-Substitua `<URL_DO_REPOSITORIO>` pela URL disponibilizada pela equipe:
-
-```powershell
-git clone <URL_DO_REPOSITORIO>
-Set-Location .\moeda-estudantil
-```
-
-### 2. Preparar o ambiente Python
+Na raiz do repositório:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -r .\backend\requirements.txt
-```
-
-Se a política do PowerShell impedir a ativação do ambiente virtual:
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\.venv\Scripts\Activate.ps1
-```
-
-### 3. Configurar o banco PostgreSQL
-
-O backend carrega o arquivo `.env` da **raiz do repositório**. Copie o exemplo existente:
-
-```powershell
 Copy-Item .\.env.example .\.env
 ```
 
-Edite o arquivo `.env` e informe a URL da sua instância Neon:
+Edite `.env`, na raiz, com a conexão do banco local ou isolado e valores próprios de desenvolvimento. Exemplo sem credenciais reais:
 
 ```dotenv
-DATABASE_URL=postgresql+psycopg://usuario:senha@host/neondb?sslmode=require
+DATABASE_URL=postgresql+psycopg://<usuario>:<senha>@<host>/<banco>?sslmode=require
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+APP_ENV=development
+JWT_SECRET=<segredo-local-aleatorio>
+ADMIN_CRON_TOKEN=<token-interno-local-aleatorio>
+ADMIN_UI_USERNAME=<usuario-administrativo-local>
+ADMIN_UI_PASSWORD_HASH=<hash-argon2-gerado-localmente>
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASSWORD=
+SMTP_FROM=
 ```
 
-O arquivo `.env` contém credenciais e está ignorado pelo Git. Não o envie ao repositório. Caso o Neon forneça uma URL iniciada por `postgresql://`, altere o esquema para `postgresql+psycopg://`, mantendo os demais parâmetros e `sslmode=require`.
-
-### 4. Executar migrações e seed
-
-Com o ambiente virtual ativo:
+Em desenvolvimento, o e-mail é opcional, mas a ativação de contas e as notificações dependem de um serviço SMTP configurado. Gere o hash da senha administrativa sem armazenar a senha no projeto:
 
 ```powershell
 Set-Location .\backend
-alembic upgrade head
-python -m app.database.seed
+..\.venv\Scripts\python.exe .\scripts\hash_admin_password.py
 ```
 
-O seed é idempotente e cadastra somente instituições ainda inexistentes, incluindo PUC Minas, UFMG e CEFET-MG.
+Configure `ADMIN_UI_PASSWORD_HASH` no `.env` apenas para o ambiente local. Em produção, `JWT_SECRET` e `ADMIN_CRON_TOKEN` devem ser segredos diferentes, aleatórios e com pelo menos 32 bytes. Não coloque segredos em variáveis `VITE_*`.
 
-### 5. Iniciar a API
+### 2. Aplicar migrações e iniciar a API
 
-Ainda no diretório `backend`:
+No diretório `backend`:
 
 ```powershell
-uvicorn app.main:app --reload --port 8000
+Set-Location .\backend
+..\.venv\Scripts\alembic.exe upgrade head
+..\.venv\Scripts\python.exe -m app.database.seed
+..\.venv\Scripts\uvicorn.exe app.main:app --reload --port 8000
 ```
 
-Endereços disponíveis:
+A API estará em `http://localhost:8000`; a documentação Swagger em `http://localhost:8000/docs`; e a verificação de saúde em `http://localhost:8000/health`.
 
-- API: `http://localhost:8000`;
-- documentação Swagger: `http://localhost:8000/docs`;
-- verificação de saúde: `http://localhost:8000/health`.
+O seed cadastra as instituições que ainda não existirem. Execute-o somente no banco local ou isolado escolhido para desenvolvimento.
 
-### 6. Preparar e iniciar o front-end
+### 3. Iniciar o front-end
 
-Abra outro terminal PowerShell e execute a partir da raiz clonada:
+Em outro terminal, a partir da raiz:
 
 ```powershell
 Set-Location .\frontend
-npm install
+npm ci
 Copy-Item .\.env.example .\.env
 npm run dev
 ```
 
-O arquivo `frontend/.env` deve conter:
+O arquivo `frontend/.env` deve apontar para a API local:
 
 ```dotenv
 VITE_API_URL=http://localhost:8000/api
 ```
 
-Acesse a aplicação em `http://localhost:5173`.
+A aplicação estará em `http://localhost:5173`.
 
-## Endpoints da API
+### Variáveis de ambiente
 
-| Método | Endpoint | Descrição |
-|---|---|---|
-| `GET` | `/api/alunos` | Lista alunos e aceita o parâmetro `busca` |
-| `GET` | `/api/alunos/{id}` | Consulta um aluno |
-| `POST` | `/api/alunos` | Cadastra um aluno |
-| `PUT` | `/api/alunos/{id}` | Atualiza um aluno |
-| `DELETE` | `/api/alunos/{id}` | Exclui um aluno |
-| `GET` | `/api/empresas` | Lista empresas e aceita o parâmetro `busca` |
-| `GET` | `/api/empresas/{id}` | Consulta uma empresa |
-| `POST` | `/api/empresas` | Cadastra uma empresa |
-| `PUT` | `/api/empresas/{id}` | Atualiza uma empresa |
-| `DELETE` | `/api/empresas/{id}` | Exclui uma empresa |
-| `GET` | `/api/instituicoes` | Lista instituições de ensino |
-| `GET` | `/api/dashboard/indicadores` | Retorna totais de alunos e empresas |
-| `GET/POST` | `/api/professores` | Lista e cadastra professores |
-| `GET/PUT/DELETE` | `/api/professores/{id}` | Consulta, atualiza e exclui professor sem histórico |
-| `POST` | `/api/moedas/transferencias` | Distribui moedas de professor para aluno |
-| `GET` | `/api/professores/{id}/extrato` | Extrato do professor |
-| `GET` | `/api/alunos/{id}/extrato` | Extrato do aluno |
-| `GET/POST` | `/api/vantagens` | Lista e cadastra vantagens |
-| `GET/PUT` | `/api/vantagens/{id}` | Consulta e atualiza vantagem |
-| `POST` | `/api/vantagens/{id}/desativar` | Desativa vantagem |
-| `POST` | `/api/resgates` | Resgata vantagem e gera cupom |
+| Variável | Uso |
+|---|---|
+| `DATABASE_URL` | Conexão PostgreSQL usada pelo back-end; em produção, exigir TLS (`sslmode=require` ou superior). |
+| `CORS_ORIGINS` | Lista separada por vírgulas das origens autorizadas. Em produção, usar somente origens HTTPS explícitas. |
+| `APP_ENV` | Ambiente, por exemplo `development` ou `production`. |
+| `JWT_SECRET` | Segredo privado usado para assinar JWTs. |
+| `ADMIN_CRON_TOKEN` | Segredo privado para operações internas de cron/provisionamento. |
+| `ADMIN_UI_USERNAME` | Nome da conta administrativa institucional. |
+| `ADMIN_UI_PASSWORD_HASH` | Hash Argon2 da senha administrativa; nunca a senha em texto puro. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Configuração opcional de envio de e-mail. |
+| `VITE_API_URL` | URL pública da API consumida pelo frontend, por exemplo `https://<dominio-da-api>/api`. Não pode conter segredos. |
 
-## Modelo de dados
+Os nomes dos parâmetros são mostrados para documentação; configure valores somente em arquivos locais ignorados pelo Git ou nos painéis privados dos serviços. Nunca versione `.env` nem credenciais reais.
 
-As entidades implementadas na Sprint 2 são:
+## Acesso e segurança
 
-- **Usuario:** concentra nome, e-mail, tipo e a estrutura preparada para futura autenticação;
-- **Aluno:** contém CPF, RG, curso, saldo e vínculo obrigatório com uma instituição;
-- **EmpresaParceira:** contém CNPJ e telefone;
-- **InstituicaoEnsino:** mantém as instituições disponíveis para seleção;
-- **Endereco:** representa o endereço associado a um usuário.
+Os perfis disponíveis são `ALUNO`, `PROFESSOR`, `EMPRESA` e `ADMIN`. As rotas protegidas validam assinatura e expiração do JWT e conferem o perfil necessário. A API deriva a identidade das operações financeiras da sessão autenticada e aplica validação de propriedade nos dados das empresas.
 
-`Aluno` e `EmpresaParceira` especializam `Usuario`. Cada usuário possui um endereço, e cada aluno está vinculado a uma instituição de ensino. O banco também aplica restrições de unicidade e chaves estrangeiras.
+O cadastro de alunos e empresas é público somente para visitantes sem uma sessão JWT válida. Professores são pré-cadastrados pela administração institucional; o endpoint interno exige `ADMIN_CRON_TOKEN`. A tela administrativa usa credenciais próprias configuradas apenas no back-end e não recebe o token de cron.
 
-Documentação detalhada:
+O JWT do navegador fica em `sessionStorage`, é removido no logout e em respostas 401. Isso reduz a persistência após fechar a sessão, mas não impede que um ataque XSS na mesma origem leia o token enquanto a sessão estiver ativa. O armazenamento no navegador deve ser considerado um risco residual; mantenha dependências atualizadas e não renderize conteúdo HTML não confiável.
 
-- [Modelo Entidade-Relacionamento](docs/modelo-er.md);
-- [Diagrama ER em Mermaid](docs/modelo-er.mmd);
-- [Arquitetura do sistema](docs/arquitetura.md);
-- [Arquitetura em camadas](docs/arquitetura-camadas.mmd);
-- [Diagrama de componentes](docs/componentes.mmd);
-- [Sequência do cadastro de aluno](docs/sequencia-cadastro-aluno.mmd);
-- [Visão de implantação](docs/implantacao.mmd);
-- [Consistência com os modelos UML](docs/consistencia-uml.md);
-- [Camada de persistência](docs/persistencia.md);
-- [Roteiro da apresentação](docs/roteiro-apresentacao.md).
+O endpoint de crédito semestral também exige `ADMIN_CRON_TOKEN`. Ele não deve ser exposto a perfis comuns. Os limites de tentativas de autenticação são persistidos no PostgreSQL e usam contadores por IP/e-mail conforme a configuração dos serviços.
 
-## Testes
+## Endpoints principais
+
+A API é prefixada por `/api`. As permissões são conferidas no back-end; a lista abaixo resume os fluxos mais utilizados.
+
+| Método e rota | Acesso e finalidade |
+|---|---|
+| `POST /api/auth/login` | Público; autentica aluno, professor ou empresa. |
+| `POST /api/auth/activation/request` | Público; solicita token para conta elegível sem senha. |
+| `POST /api/auth/activation/complete` | Público; define senha com token temporário. |
+| `POST /api/alunos`, `POST /api/empresas` | Cadastro público para visitantes; JWT autenticado é recusado. |
+| `GET /api/instituicoes` | Público; opções de instituição para os formulários. |
+| `GET/PUT /api/alunos/{id}` e `GET /api/alunos/{id}/extrato` | Perfil ALUNO; somente os próprios dados. Professores podem consultar a listagem de alunos. |
+| `POST /api/moedas/transferencias` | Perfil PROFESSOR; identidade de origem derivada do JWT. |
+| `GET /api/professores/{id}/extrato` | Perfil PROFESSOR; somente o próprio extrato. |
+| `GET /api/vantagens/catalogo` | Perfil ALUNO; vantagens ativas disponíveis. |
+| `POST /api/resgates` | Perfil ALUNO; resgate idempotente. |
+| `GET /api/vantagens/minhas` e `POST/PUT/DELETE /api/vantagens` | Perfil EMPRESA; gerenciamento limitado às próprias vantagens. Há rotas para ativar e desativar. |
+| `POST /api/cupons/consultar`, `POST /api/cupons/validar` | Perfil EMPRESA; apenas cupons das próprias vantagens. |
+| `GET/POST/PUT /api/admin/professores` | Administrador autenticado; gerenciamento institucional de professores. |
+| `POST /api/moedas/creditos-semestrais` | Operação interna protegida por `X-Admin-Token` / `ADMIN_CRON_TOKEN`. |
+| `GET /health` | Público; verificação de disponibilidade da API. |
+
+Consulte `/docs` para os parâmetros e modelos completos da API.
+
+## Testes e validações
+
+Os testes de back-end usam uma base isolada configurada pela suíte; não devem apontar para o PostgreSQL de produção.
 
 ### Back-end
-
-A suíte utiliza um banco SQLite isolado criado exclusivamente durante os testes. A instância Neon configurada no `.env` não é alterada.
-
-Na raiz do projeto:
 
 ```powershell
 Set-Location .\backend
 ..\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Os testes cobrem os CRUDs, duplicidade de documentos e e-mails, instituição inexistente, buscas, consultas e exclusões.
-
 ### Front-end
 
-No diretório `frontend`:
-
 ```powershell
+Set-Location .\frontend
 npm test
 npm run build
 ```
 
-`npm test` executa os testes com Vitest. `npm run build` também verifica os tipos TypeScript e gera o build de produção.
+Na última validação registrada em `docs/implantacao-lab04s02.md`: **43 testes de back-end aprovados**, **19 testes de front-end aprovados** e build do front-end concluído com sucesso. Essa validação não foi repetida durante a edição deste README.
 
-### Verificação manual dos CRUDs
+A cadeia de migrações também foi aplicada em uma base SQLite descartável para verificar o fluxo de migração e a preservação de usuários legados sem senha. O teste de migração em PostgreSQL isolado não foi executado no registro citado: `psql` não estava disponível e o Docker não iniciou. Não execute `alembic upgrade head` contra o Neon compartilhado sem revisão e autorização.
 
-1. Inicie o backend e o frontend em terminais separados.
-2. Execute o seed e confirme que as instituições aparecem no formulário de aluno.
-3. Cadastre um aluno e uma empresa parceira.
-4. Confira os registros nas listagens e nas páginas de detalhes.
-5. Edite os registros e verifique que CPF e CNPJ continuam bloqueados.
-6. Tente reutilizar CPF, CNPJ ou e-mail e confirme a mensagem de conflito.
-7. Exclua os registros e confirme que a interface solicita confirmação.
-8. Recarregue a página para verificar a persistência dos dados.
+## Diagramas e documentação acadêmica
 
-## Documentação acadêmica
+Os fontes editáveis PlantUML e as imagens PNG correspondentes ficam em [`docs/modelagem`](docs/modelagem). Os diagramas do Lab04 incluem:
 
-- [Modelagem UML da Sprint 1](Lab03S01-modelagem.pdf);
-- [Enunciado do Laboratório 3](LABORATORIO_3_LAB_DESENVOLVIMENTO_DE_SOFTWARE.pdf);
-- [Modelo ER da Sprint 2](docs/modelo-er.md);
-- [Diagrama ER em Mermaid](docs/modelo-er.mmd);
-- [Decisões de arquitetura](docs/arquitetura.md).
+- `lab04-seq-autenticacao.puml` e `.png` — login, ativação de contas antigas e limites de tentativas;
+- `lab04-seq-transferencia.puml` e `.png` — transferência de moedas;
+- `lab04-seq-resgate.puml` e `.png` — resgate, transação e idempotência;
+- `lab04-seq-cupom.puml` e `.png` — consulta e validação de cupom pela empresa proprietária;
+- `lab04-seq-admin-professores.puml` e `.png` — pré-cadastro e gerenciamento administrativo de professores;
+- `lab04-sequencias.puml` e `.png` — sequência integrada dos fluxos por perfil;
+- `lab04-visao-geral-interacao.puml` e `.png` — Diagrama de Visão Geral de Interação UML com decisões e referências às sequências;
+- `lab04-diagrama-implantacao.puml` e `.png` — navegador, frontend, API, PostgreSQL e SMTP. O diagrama identifica os provedores como planejados quando descreve a arquitetura-alvo e não afirma implantação que não esteja verificada.
 
-## Equipe
+O PDF consolidado está em [`output/pdf/conquista-lab04-diagramas-uml.pdf`](output/pdf/conquista-lab04-diagramas-uml.pdf). A modelagem anterior das Sprints 1 a 3 também está em `docs/`, nos arquivos de modelo ER, arquitetura, persistência, fluxos e apresentação.
 
-- Felipe Costa Lisboa
-- Arthur Martins Candido
-- Gustavo Leonardi Ribeiro
-- Sofia Fernandes Ferreira Silva
+## Créditos
 
-## Estado atual
+Projeto da disciplina **Projeto de Software — PUC Minas**.
 
-A Release 02 acrescentou autenticação por perfil, recuperação segura de contas antigas, transferências, vantagens, resgates e cupons. O estado de autorização e as configurações estão detalhados abaixo; o deploy em nuvem ainda não foi executado.
+- **Orientadora:** professora Milena Menezes Adão.
+- **Equipe:**
+  - Felipe Costa Lisboa;
+  - Arthur Martins Candido;
+  - Gustavo Leonardi Ribeiro;
+  - Sofia Fernandes Ferreira Silva.
 
-## Release 02 — Lab04S01 security
+## Licença
 
-Authorization matrix: public visitor endpoints are `POST /api/auth/login`, `POST /api/auth/activation/request`, `POST /api/auth/activation/complete`, `POST /api/alunos`, `POST /api/empresas`, `GET /api/instituicoes`, and `GET /health`. Student and company creation endpoints reject any valid bearer JWT; the frontend also hides public signup forms from authenticated sessions. `POST /api/professores` and `POST /api/moedas/creditos-semestrais` require the internal `X-Admin-Token` / `ADMIN_CRON_TOKEN`; administrative teacher-management endpoints use the separate server-configured ADMIN UI credentials and JWT. Other API endpoints require a valid bearer JWT. Student account reads/updates and their statement are self-only; professor account/statement and transfers require `PROFESSOR`; company account, benefit management and coupon confirmation require `EMPRESA`. Students can only retrieve their own student record; professor student directory is read-only. `GET /api/vantagens` and single-benefit reads require authentication.
-
-New student and company accounts require a 12-character minimum password. Professor provisioning is an institution-controlled internal operation and does not have a self-service registration path. Legacy accounts without a password can request an email activation grant; only the hash is stored, it expires after 15 minutes, and it is consumed atomically once. SMTP must be configured for delivery. Set a strong `JWT_SECRET` and `ADMIN_CRON_TOKEN` in production. Do not put these values in frontend variables.
-
-PlantUML sources for the implemented authentication, transfer, redemption and coupon flows are `docs/modelagem/lab04-sequencias.puml` and `docs/modelagem/lab04-visao-geral-interacao.puml`.
-Administrative teacher pre-registration and activation are represented in `docs/modelagem/lab04-seq-admin-professores.puml`; the interaction overview references this flow as an `InteractionUse`.
-Migration `20261116_0006` adds the one-time activation table and preserves passwordless legacy users; `20261116_0007` adds only authentication rate-limit counters. The isolated SQLite migration smoke test passes. PostgreSQL isolation was unavailable here: `psql` is not installed and `docker info` reports `open //./pipe/docker_engine: The system cannot find the file specified`. No migration has been run against Neon or another shared database.
-Individual sequence sources: `lab04-seq-autenticacao.puml`, `lab04-seq-admin-professores.puml`, `lab04-seq-transferencia.puml`, `lab04-seq-resgate.puml`, and `lab04-seq-cupom.puml`. The UML 2 interaction overview uses explicit `InteractionUse` nodes referencing those interactions, with decision/merge flow on the authenticated role.
-
-### Cadastro de contas para desenvolvimento
-
-The public /cadastro page offers ALUNO and EMPRESA only. Institution administrators manage professors at `/admin/login` and `/admin/professores`, using `ADMIN_UI_USERNAME` plus an Argon2 `ADMIN_UI_PASSWORD_HASH` configured only on the backend. The UI calls a protected backend intermediary; `ADMIN_CRON_TOKEN` remains private and is never sent to the browser. Professor accounts are created without passwords and receive a one-time activation email. The internal `POST /api/professores` endpoint still requires `X-Admin-Token` in every APP_ENV.
-
-Authenticated students see `Meu perfil` and can open/edit only their own student record. Students and companies can create accounts only through public signup as visitors; valid authenticated JWTs are rejected by both backend creation endpoints. Company sessions likewise open only the company's own profile. Professor directory access is read-only; creation and editing of professor accounts are restricted to the administrative interface.
-
-Vantages are scoped by the authenticated company in the backend: `GET /api/vantagens/minhas` returns only owned offers, while `GET /api/vantagens/catalogo` returns active offers for students. Create/update/status operations derive or verify the owner from JWT, and company ID query/body values are ignored for authorization. Coupon consultation and validation also derive the company from JWT and cross-check ownership through the referenced advantage. Deletion is allowed only before any redemption; offers with redemption history must be deactivated so coupons and financial history remain intact.
-
-## Lab04S02 deployment preparation
-
-See [deployment guide](docs/implantacao-lab04s02.md) and [deployment diagram](docs/modelagem/lab04-diagrama-implantacao.puml). Render/Vercel configuration is prepared; no cloud deployment, public URL verification, or shared Neon migration has been performed.
-
-Authentication attempts are limited using atomic PostgreSQL counters introduced in migration 20261116_0007. The global dashboard indicator endpoint is restricted to professors and only returns the student count.
-
-The browser JWT is held in sessionStorage; this limits persistence but does not protect against same-origin XSS. The deployment guide records the risk and HttpOnly cookie option.
-
-Rendered UML diagrams (editable PlantUML sources are in the same directory):
-
-- `docs/modelagem/lab04-seq-autenticacao.png`
-- `docs/modelagem/lab04-seq-transferencia.png`
-- `docs/modelagem/lab04-seq-resgate.png`
-- `docs/modelagem/lab04-seq-cupom.png`
-- `docs/modelagem/lab04-visao-geral-interacao.png`
-- `docs/modelagem/lab04-diagrama-implantacao.png`
+Projeto acadêmico. Consulte a equipe responsável antes de reutilizar ou redistribuir o sistema.
