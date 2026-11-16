@@ -1,6 +1,7 @@
 
 from .entities import (
     Aluno,
+    AuthRateLimit,
     CreditoSemestral,
     EmpresaParceira,
     Endereco,
@@ -13,4 +14,4 @@ from .entities import (
 )
 
 
-__all__ = ["Usuario", "Aluno", "EmpresaParceira", "Professor", "TransferenciaMoedas", "Vantagem", "ResgateVantagem", "Endereco", "InstituicaoEnsino"]
+__all__ = ["Usuario", "Aluno", "EmpresaParceira", "Professor", "TransferenciaMoedas", "Vantagem", "ResgateVantagem", "Endereco", "InstituicaoEnsino", "AuthRateLimit"]

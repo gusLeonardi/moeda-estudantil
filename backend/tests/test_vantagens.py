@@ -24,7 +24,7 @@ def criar_empresa_vantagem(client, endereco, custo=100, ativa=True):
             "nome": "Desconto Demo",
             "descricao": "Benefício fictício para testes",
             "custo": custo,
-            "imagem_url": "/images/vantagem-demo.png",
+            "imagem_url": "https://images.example.test/vantagem-demo.png",
             "ativa": ativa,
         },
     )
@@ -63,6 +63,18 @@ def test_crud_e_desativacao_vantagem(client, endereco):
     disabled = client.post(f"/api/vantagens/{vantagem['id']}/desativar")
     assert disabled.status_code == 200 and disabled.json()["ativa"] is False
     assert client.get("/api/vantagens?apenas_ativas=true").json() == []
+
+
+def test_vantagem_requires_public_https_image_url(client, endereco):
+    company = client.post("/api/empresas", json=empresa_payload(endereco)).json()
+    payload = {
+        "empresa_id": company["id"], "nome": "Oferta segura", "descricao": "Beneficio com imagem",
+        "custo": 5, "ativa": True,
+    }
+    for invalid_url in ("/images/item.png", "http://images.example.test/item.png", "https://127.0.0.1/item.png"):
+        assert client.post("/api/vantagens", json={**payload, "imagem_url": invalid_url}).status_code == 422
+    valid = client.post("/api/vantagens", json={**payload, "imagem_url": "https://cdn.example.test/item.png"})
+    assert valid.status_code == 201
 
 
 def test_resgate_valido_cupom_extrato_e_idempotencia(client, endereco):

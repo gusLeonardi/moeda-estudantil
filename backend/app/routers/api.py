@@ -1,7 +1,8 @@
 
 from typing import Annotated
+from ipaddress import ip_address
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -58,6 +59,7 @@ from app.services.vantagens import (
 )
 from app.schemas.auth import ActivationRequest, DefinirSenhaRequest, LoginRequest, TokenResponse
 from app.services.auth import activate_account, authenticate, current_user, issue_token, request_activation, require_role
+from app.services.rate_limit import enforce_auth_limits
 from app.core.config import get_settings
 from app.models import Usuario
 
@@ -65,19 +67,35 @@ from app.models import Usuario
 router = APIRouter()
 Db = Annotated[Session, Depends(get_db)]
 
+def _request_ip(request: Request) -> str:
+    # Render's Cloudflare edge overwrites CF-Connecting-IP; X-Forwarded-For can
+    # contain caller-controlled values and is deliberately not trusted here.
+    if get_settings().app_env.lower() == "production":
+        forwarded = request.headers.get("cf-connecting-ip", "")
+        try:
+            return str(ip_address(forwarded.strip()))
+        except ValueError:
+            pass
+    return request.client.host if request.client else "unknown"
+
 def _self(actor: Usuario, entity_id: int, role: str) -> None:
     if actor.tipo != role or actor.id != entity_id:
         raise HTTPException(403, "Acesso negado")
 
 @router.post("/auth/login", response_model=TokenResponse)
-def login(data: LoginRequest, db: Db):
+def login(data: LoginRequest, db: Db, request: Request):
+    ip = _request_ip(request)
+    enforce_auth_limits(db, "login", [("ip", ip, 20), ("email", str(data.email), 5)], 15 * 60)
     user = authenticate(str(data.email), data.senha, db)
     return TokenResponse(access_token=issue_token(user), id=user.id, nome=user.nome, tipo=user.tipo)
 
 @router.post("/auth/activation/request", status_code=202)
-def solicitar_ativacao(data: ActivationRequest, db: Db):
+def solicitar_ativacao(data: ActivationRequest, db: Db, request: Request):
+    ip = _request_ip(request)
+    enforce_auth_limits(db, "activation", [("ip", ip, 10), ("email", str(data.email), 3)], 60 * 60)
     request_activation(str(data.email), db)
-    return {"detail": "Se a conta estiver elegível, as instruções serão enviadas ao e-mail cadastrado."}
+    message = "Se a conta estiver elegível, as instruções serão enviadas. Se o e-mail não chegar, entre em contato com a administração."
+    return {"detail": message}
 
 @router.post("/auth/activation/complete", status_code=204)
 def concluir_ativacao(data: DefinirSenhaRequest, db: Db):
@@ -209,7 +227,7 @@ def listar_instituicoes(db: Db):
     "/dashboard/indicadores",
     response_model=dict[str, int],
 )
-def obter_indicadores(db: Db, actor: Usuario = Depends(current_user)):
+def obter_indicadores(db: Db, actor: Usuario = Depends(require_role("PROFESSOR"))):
     return DashboardService(db).indicators()
 
 
@@ -244,8 +262,7 @@ def obter_professor(entity_id: int, db: Db, actor: Usuario = Depends(require_rol
 def criar_professor(data: ProfessorCreate, db: Db, x_admin_token: str | None = Header(None)):
     import hmac
     expected = get_settings().admin_cron_token
-    local_signup = get_settings().app_env.lower() in {"development", "test"}
-    if not local_signup and (not expected or not x_admin_token or not hmac.compare_digest(expected, x_admin_token)):
+    if not expected or not x_admin_token or not hmac.compare_digest(expected, x_admin_token):
         raise HTTPException(404, "Operação indisponível")
     return ProfessorService(db).create(data)
 

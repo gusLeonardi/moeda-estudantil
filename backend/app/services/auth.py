@@ -1,6 +1,7 @@
 ﻿from datetime import datetime, timedelta, timezone
 import hashlib
 import hmac
+import logging
 import secrets
 
 import jwt
@@ -18,6 +19,7 @@ from app.services.email_service import enviar_email, estrutura_email
 
 hasher = PasswordHash.recommended()
 bearer = HTTPBearer(auto_error=False)
+logger = logging.getLogger(__name__)
 
 
 def _activation_schema_unavailable(exc: DBAPIError) -> HTTPException:
@@ -78,11 +80,11 @@ def password_setup_token(email: str, secret: str) -> str:
     return hmac.new(secret.encode(), email.lower().encode(), hashlib.sha256).hexdigest()
 
 
-def request_activation(email: str, db: Session) -> None:
+def request_activation(email: str, db: Session) -> bool:
     """Email-bound, expiring, one-time activation; never reveals account existence."""
     user = db.scalar(select(Usuario).where(Usuario.email == email.lower()))
     if not user or user.senha_hash:
-        return
+        return True
     now = datetime.now(timezone.utc)
     raw = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(raw.encode()).hexdigest()
@@ -93,7 +95,17 @@ def request_activation(email: str, db: Session) -> None:
     except DBAPIError as exc:
         db.rollback()
         raise _activation_schema_unavailable(exc) from exc
-    enviar_email(user.email, "Conquista | Ative sua conta", estrutura_email("Ativação de conta", f"<p>Use este token temporário no fluxo seguro de ativação:</p><p>{raw}</p><p>Expira em 15 minutos e só pode ser usado uma vez.</p>"))
+    sent = enviar_email(user.email, "Conquista | Ative sua conta", estrutura_email("Ativação de conta", f"<p>Use este token temporário no fluxo seguro de ativação:</p><p>{raw}</p><p>Expira em 15 minutos e só pode ser usado uma vez.</p>"))
+    if not sent:
+        # Never leave an unusable grant active after delivery failure.
+        db.execute(
+            text("DELETE FROM ativacoes_conta WHERE usuario_id=:uid AND token_hash=:token"),
+            {"uid": user.id, "token": token_hash},
+        )
+        db.commit()
+        logger.error("Token de ativacao nao entregue; grant invalidado")
+        return False
+    return True
 
 
 def activate_account(email: str, token: str, password: str, db: Session) -> None:

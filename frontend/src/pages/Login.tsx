@@ -25,8 +25,8 @@ export function Login() {
         saveSession(data); navigate('/', { replace: true }); return;
       }
       if (mode === 'request') {
-        await api.post('/auth/activation/request', { email }); setMode('complete');
-        setNotice('Se a conta puder ser ativada, enviaremos um token ao e-mail cadastrado. Confira também a pasta de spam.'); return;
+        const { data } = await api.post<{ detail: string }>('/auth/activation/request', { email }); setMode('complete');
+        setNotice(data.detail); return;
       }
       await api.post('/auth/activation/complete', { email, token: token.trim(), senha });
       setMode('login'); setToken(''); setSenha(''); setNotice('Senha definida. Entre usando seu e-mail e a nova senha.');

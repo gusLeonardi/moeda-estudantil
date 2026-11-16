@@ -1,5 +1,5 @@
 import { api } from './api';
-import type { Aluno, AlunoCreate, AlunoUpdate } from '../types';
+import type { Aluno, AlunoCreate, AlunoUpdate, ExtratoAluno } from '../types';
 
 export const alunoService = {
   listar: async (busca = '') =>
@@ -24,5 +24,5 @@ export const alunoService = {
 
   // Novo: consulta o histórico de moedas do aluno.
   extrato: async (id: number) =>
-    (await api.get(`/alunos/${id}/extrato`)).data,
+    (await api.get<ExtratoAluno>(`/alunos/${id}/extrato`)).data,
 };

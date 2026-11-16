@@ -1,6 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
+from ipaddress import ip_address
 from typing import Annotated
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -14,8 +16,13 @@ class VantagemCreate(BaseModel):
     nome: Annotated[str, Field(min_length=2, max_length=150)]
     descricao: Annotated[str, Field(min_length=3, max_length=1000)]
     custo: int = Field(gt=0)
-    imagem_url: Annotated[str | None, Field(max_length=500)] = None
+    imagem_url: Annotated[str, Field(min_length=12, max_length=500)]
     ativa: bool = True
+
+    @field_validator("imagem_url")
+    @classmethod
+    def validate_image_url(cls, value: str) -> str:
+        return _validated_image_url(value)
 
 
 class VantagemUpdate(BaseModel):
@@ -24,6 +31,36 @@ class VantagemUpdate(BaseModel):
     custo: int = Field(gt=0)
     imagem_url: Annotated[str | None, Field(max_length=500)] = None
     ativa: bool
+
+    @field_validator("imagem_url")
+    @classmethod
+    def validate_image_url(cls, value: str | None) -> str | None:
+        return _validated_image_url(value) if value else None
+
+
+def _validated_image_url(value: str) -> str:
+    url = value.strip()
+    try:
+        parsed = urlsplit(url)
+        host = parsed.hostname or ""
+        _ = parsed.port  # Force validation of malformed ports.
+    except ValueError as exc:
+        raise ValueError("Informe uma URL HTTPS válida para a imagem") from exc
+    try:
+        address = ip_address(host)
+    except ValueError:
+        address = None
+    if (
+        parsed.scheme.lower() != "https"
+        or not host
+        or parsed.username is not None
+        or parsed.password is not None
+        or host.lower() == "localhost"
+        or host.lower().endswith(".local")
+        or (address is not None and not address.is_global)
+    ):
+        raise ValueError("Use uma URL HTTPS pública para a imagem")
+    return url
 
 
 class VantagemResponse(BaseModel):
@@ -42,7 +79,7 @@ class VantagemResponse(BaseModel):
 # ==========================================
 
 class ResgateCreate(BaseModel):
-    aluno_id: int = Field(gt=0)
+    aluno_id: int | None = Field(default=None, gt=0)
     vantagem_id: int = Field(gt=0)
 
     idempotency_key: Annotated[

@@ -25,9 +25,9 @@ def client():
     Base.metadata.create_all(engine)
     with TestingSession() as db:
         db.add(InstituicaoEnsino(nome="Pontifícia Universidade Católica de Minas Gerais", sigla="PUC Minas")); db.commit()
-    app = create_app()
     get_settings().admin_cron_token = "test-only-admin-token"
     get_settings().app_env = "development"
+    app = create_app()
     def override_db():
         with TestingSession() as db: yield db
     app.dependency_overrides[get_db] = override_db

@@ -1,4 +1,4 @@
-﻿from tests.test_moedas import aluno_payload, professor_payload
+from tests.test_moedas import aluno_payload, professor_payload, provisionar_professor
 import re
 from datetime import datetime, timedelta, timezone
 import pytest
@@ -17,7 +17,7 @@ def test_login_argon2_and_bad_password(client, endereco):
 
 def test_transfer_requires_professor_identity_and_isolates_extratos(client, endereco):
     student = client.post("/api/alunos", json=aluno_payload(endereco)).json()
-    prof = client.post("/api/professores", json=professor_payload(endereco)).json()
+    prof = provisionar_professor(client, professor_payload(endereco)).json()
     student_token = client.post("/api/auth/login", json={"email": "aluno@example.com", "senha": "Senha-Forte-Teste-123!"}).json()["access_token"]
     payload = {"professor_id": prof["id"], "aluno_id": student["id"], "quantidade": 1, "justificativa": "Reconhecimento"}
     assert client.post("/api/moedas/transferencias", json=payload, headers={"Authorization": ""}).status_code == 401
@@ -34,8 +34,10 @@ def test_private_records_are_isolated_by_profile(client, endereco):
     assert client.get(f"/api/alunos/{b['id']}/extrato",headers=h).status_code==403
 
 
-def test_professor_self_signup_is_auto_approved_only_in_development(client, endereco):
-    professor = client.post("/api/professores", json=professor_payload(endereco))
+def test_professor_provisioning_requires_admin_token_even_in_development(client, endereco):
+    payload = professor_payload(endereco)
+    assert client.post("/api/professores", json=payload).status_code == 404
+    professor = provisionar_professor(client, payload)
     assert professor.status_code == 201
     login = client.post("/api/auth/login", json={"email":"professor@example.com", "senha":"Senha-Forte-Teste-123!"})
     assert login.status_code == 200
@@ -50,10 +52,70 @@ def test_professor_signup_is_not_public_in_production(client, endereco):
     assert response.status_code == 404
 
 
+def test_production_configuration_requires_private_secrets_tls_and_https_cors(monkeypatch):
+    from app.core.config import Settings
+
+    monkeypatch.setenv("JWT_SECRET", "")
+    settings = Settings(app_env="production", jwt_secret="", admin_cron_token="", database_url="", cors_origins="")
+    with pytest.raises(RuntimeError, match="JWT_SECRET"):
+        settings.validate_production()
+    settings.jwt_secret = "j" * 40
+    settings.admin_cron_token = "a" * 40
+    settings.database_url = "postgresql+psycopg://app:pass@db.example.test/conquista?sslmode=require"
+    settings.cors_origins = "https://conquista.example.test"
+    settings.validate_production()
+    settings.cors_origins = "*"
+    with pytest.raises(RuntimeError, match="CORS_ORIGINS"):
+        settings.validate_production()
+
+
+def test_global_dashboard_indicators_are_professor_only(client, endereco):
+    client.post("/api/alunos", json=aluno_payload(endereco))
+    assert client.get("/api/dashboard/indicadores").status_code == 403
+    professor = provisionar_professor(client, professor_payload(endereco))
+    assert professor.status_code == 201
+    token = client.post("/api/auth/login", json={"email": "professor@example.com", "senha": "Senha-Forte-Teste-123!"}).json()["access_token"]
+    response = client.get("/api/dashboard/indicadores", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+    assert response.json() == {"total_alunos": 1}
+
+
 def test_activation_request_does_not_reveal_accounts(client):
     unknown = client.post("/api/auth/activation/request", json={"email": "unknown@example.com"})
     assert unknown.status_code == 202
     assert "Se a conta" in unknown.json()["detail"]
+
+
+def test_auth_endpoints_rate_limit_repeated_attempts(client, endereco):
+    client.post("/api/alunos", json=aluno_payload(endereco))
+    payload = {"email": "aluno@example.com", "senha": "senha-incorreta"}
+    for _ in range(4):
+        assert client.post("/api/auth/login", json=payload).status_code == 401
+    blocked = client.post("/api/auth/login", json=payload)
+    assert blocked.status_code == 429
+    assert int(blocked.headers["Retry-After"]) > 0
+
+    activation = {"email": "missing@example.com"}
+    for _ in range(3):
+        assert client.post("/api/auth/activation/request", json=activation).status_code == 202
+    assert client.post("/api/auth/activation/request", json=activation).status_code == 429
+
+
+def test_activation_delivery_failure_invalidates_grant(client, monkeypatch, caplog):
+    from conftest import TestingSession
+    from sqlalchemy import text
+    import app.services.auth as auth
+
+    with TestingSession() as db:
+        legacy_account(db, "undeliverable@example.com")
+    monkeypatch.setattr(auth, "enviar_email", lambda *_: False)
+    response = client.post("/api/auth/activation/request", json={"email": "undeliverable@example.com"})
+    assert response.status_code == 202
+    assert "Se a conta" in response.json()["detail"]
+    assert "grant invalidado" in caplog.text
+    with TestingSession() as db:
+        count = db.execute(text("SELECT COUNT(*) FROM ativacoes_conta")).scalar_one()
+    assert count == 0
 
 
 def test_activation_reports_missing_migration_without_sql_traceback(client):

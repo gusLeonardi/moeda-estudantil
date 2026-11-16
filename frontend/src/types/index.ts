@@ -14,6 +14,6 @@ export type ExtratoProfessor={professor_id:number;saldo:string;total_distribuido
 export type MovimentoAluno={tipo:'RECEBIMENTO'|'RESGATE';data:string;quantidade:string;descricao:string;professor_nome?:string;vantagem_nome?:string;codigo_cupom?:string};
 export type ExtratoAluno={aluno_id:number;saldo:string;movimentos:MovimentoAluno[]};
 export type Vantagem={id:number;empresa_id:number;empresa_nome:string;nome:string;descricao:string;custo:string;imagem_url?:string|null;ativa:boolean};
-export type VantagemCreate={empresa_id:number;nome:string;descricao:string;custo:number;imagem_url?:string|null;ativa:boolean};
+export type VantagemCreate={empresa_id:number;nome:string;descricao:string;custo:number;imagem_url:string;ativa:boolean};
 export type VantagemUpdate=Omit<VantagemCreate,'empresa_id'>;
 export type Resgate={id:number;aluno_id:number;vantagem_id:number;vantagem_nome:string;empresa_id:number;empresa_nome:string;custo:string;codigo_cupom:string;criado_em:string};

@@ -1,24 +1,59 @@
 @startuml
-title Login e ativação segura — Conquista
-actor Usuário
-boundary Frontend
+title Authentication and legacy account activation
+actor User
+boundary ReactFrontend
 control AuthRouter
+control RateLimitService
 control AuthService
 database PostgreSQL
-Usuário -> Frontend: e-mail e senha
-Frontend -> AuthRouter: POST /auth/login
-AuthRouter -> AuthService: autenticar
-AuthService -> PostgreSQL: buscar usuário por e-mail
-PostgreSQL --> AuthService: hash Argon2id e perfil
-AuthService --> AuthRouter: validar senha, emitir JWT HS256 (30 min)
-AuthRouter --> Frontend: JWT e perfil
-opt Conta legada sem senha
-  Usuário -> AuthRouter: pedir ativação por e-mail
-  AuthRouter -> AuthService: gerar token aleatório
-  AuthService -> PostgreSQL: salvar hash e validade (15 min)
-  AuthService --> Usuário: enviar token ao e-mail cadastrado
-  Usuário -> AuthRouter: token + nova senha
-  AuthRouter -> AuthService: validar e consumir token atomicamente
-  AuthService -> PostgreSQL: remover concessão e gravar hash Argon2id
+participant SMTP
+
+User -> ReactFrontend: Submit email and password
+ReactFrontend -> AuthRouter: POST /auth/login
+AuthRouter -> RateLimitService: Check IP and email windows
+RateLimitService -> PostgreSQL: Atomic counter upsert
+PostgreSQL --> RateLimitService: Attempt count
+alt Login limit exceeded
+  RateLimitService --> AuthRouter: HTTP 429 + Retry-After
+  AuthRouter --> ReactFrontend: Generic rate limit response
+else Within limit
+  AuthRouter -> AuthService: Authenticate credentials
+  AuthService -> PostgreSQL: Find user by email
+  PostgreSQL --> AuthService: User record and Argon2 hash
+  alt Password valid
+    AuthService --> AuthRouter: User and role
+    AuthRouter --> ReactFrontend: HS256 JWT (30 min) and profile
+  else Invalid credentials
+    AuthService --> AuthRouter: HTTP 401
+    AuthRouter --> ReactFrontend: Generic credential error
+  end
+end
+
+opt Legacy account without a password
+  User -> ReactFrontend: Request account activation
+  ReactFrontend -> AuthRouter: POST /auth/activation/request
+  AuthRouter -> RateLimitService: Check IP and email windows
+  RateLimitService -> PostgreSQL: Atomic counter upsert
+  AuthRouter -> AuthService: Request activation grant
+  AuthService -> PostgreSQL: Find eligible legacy account
+  alt Account eligible
+    AuthService -> PostgreSQL: Store SHA-256 token hash and 15 min expiry
+    AuthService -> SMTP: Send one-time token to registered email
+    alt SMTP delivery failed
+      AuthService -> PostgreSQL: Delete unusable grant
+      AuthService -> AuthRouter: Record delivery failure without token
+    else SMTP delivery succeeded
+      AuthService --> AuthRouter: Grant delivered
+    end
+  else No eligible account
+    AuthService --> AuthRouter: No grant created; do not reveal account state
+  end
+  AuthRouter --> ReactFrontend: Same generic response for all accounts
+  User -> ReactFrontend: Enter email, token and new password
+  ReactFrontend -> AuthRouter: POST /auth/activation/complete
+  AuthRouter -> AuthService: Validate token and password
+  AuthService -> PostgreSQL: Consume grant atomically and store Argon2 hash
+  PostgreSQL --> AuthService: Commit or reject expired/reused token
+  AuthService --> ReactFrontend: 204 or generic activation error
 end
 @enduml

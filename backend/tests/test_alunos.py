@@ -1,3 +1,6 @@
+from tests.test_moedas import professor_payload, provisionar_professor
+
+
 def aluno_payload(endereco, **overrides):
     data = {"nome":"Ana Souza","email":"ana@pucminas.br","senha":"Senha-Forte-Teste-123!","cpf":"52998224725","rg":"MG1234567","curso":"Engenharia de Software","instituicao_id":1,"endereco":endereco}
     data.update(overrides); return data
@@ -53,12 +56,11 @@ def test_validacoes_e_campos_protegidos(client, endereco):
 def test_indicadores_dashboard(client, endereco):
     assert client.get("/api/dashboard/indicadores").status_code == 401
     client.post("/api/alunos", json=aluno_payload(endereco))
-    assert client.get("/api/dashboard/indicadores").json() == {
-        "total_alunos": 1,
-        "total_empresas": 0,
-        "total_professores": 0,
-        "total_vantagens": 0,
-    }
+    assert client.get("/api/dashboard/indicadores").status_code == 403
+    provisionar_professor(client, professor_payload(endereco))
+    token = client.post("/api/auth/login", json={"email": "professor@example.com", "senha": "Senha-Forte-Teste-123!"}).json()["access_token"]
+    response = client.get("/api/dashboard/indicadores", headers={"Authorization": f"Bearer {token}"})
+    assert response.json() == {"total_alunos": 1}
 
 
 def test_registros_inexistentes(client, endereco):

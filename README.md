@@ -1,4 +1,4 @@
-﻿# Conquista — Sistema de Moeda Estudantil
+# Conquista — Sistema de Moeda Estudantil
 
 O **Conquista** é uma plataforma acadêmica para reconhecimento do mérito estudantil por meio de moedas virtuais. A proposta é permitir que professores reconheçam a participação e o desempenho dos alunos e que, futuramente, essas moedas sejam trocadas por produtos, descontos e outros benefícios oferecidos por empresas parceiras.
 
@@ -332,9 +332,26 @@ Authorization matrix: public endpoints are `POST /api/auth/login`, `POST /api/au
 New student and company accounts require a 12-character minimum password. Professor provisioning is an institution-controlled internal operation and does not have a self-service registration path. Legacy accounts without a password can request an email activation grant; only the hash is stored, it expires after 15 minutes, and it is consumed atomically once. SMTP must be configured for delivery. Set a strong `JWT_SECRET` and `ADMIN_CRON_TOKEN` in production. Do not put these values in frontend variables.
 
 PlantUML sources for the implemented authentication, transfer, redemption and coupon flows are `docs/modelagem/lab04-sequencias.puml` and `docs/modelagem/lab04-visao-geral-interacao.puml`.
-`20261116_0006` adds only the activation-token table and leaves pre-existing user rows untouched. The current machine has neither a running PostgreSQL service nor an available Docker daemon; `docker info` failed with `failed to connect to the docker API ... dockerDesktopLinuxEngine: The system cannot find the file specified`. The migration has not been run against Neon or any shared database.
+Migration `20261116_0006` adds the one-time activation table and preserves passwordless legacy users; `20261116_0007` adds only authentication rate-limit counters. The isolated SQLite migration smoke test passes. PostgreSQL isolation was unavailable here: `psql` is not installed and `docker info` reports `open //./pipe/docker_engine: The system cannot find the file specified`. No migration has been run against Neon or another shared database.
 Individual sequence sources: `lab04-seq-autenticacao.puml`, `lab04-seq-transferencia.puml`, `lab04-seq-resgate.puml`, and `lab04-seq-cupom.puml`. The UML 2 interaction overview uses explicit `InteractionUse` nodes referencing those interactions, with decision/merge flow on the authenticated role.
 
 ### Cadastro de contas para desenvolvimento
 
-A tela pública `/cadastro` permite escolher ALUNO, PROFESSOR ou EMPRESA. Cadastros de aluno e empresa são aprovados ao salvar. Em `APP_ENV=development` ou `test`, o cadastro de professor também é aprovado automaticamente e aplica o saldo inicial/semestral definido pelo sistema. Em produção, o provisionamento de professor continua restrito a `ADMIN_CRON_TOKEN`; defina `APP_ENV=production` no Render.
+The public /cadastro page offers ALUNO and EMPRESA only. PROFESSOR accounts are provisioned by an administrative operation requiring X-Admin-Token in every APP_ENV; development mode never enables public teacher registration.
+
+## Lab04S02 deployment preparation
+
+See [deployment guide](docs/implantacao-lab04s02.md) and [deployment diagram](docs/modelagem/lab04-diagrama-implantacao.puml). Render/Vercel configuration is prepared; no cloud deployment, public URL verification, or shared Neon migration has been performed.
+
+Authentication attempts are limited using atomic PostgreSQL counters introduced in migration 20261116_0007. The global dashboard indicator endpoint is restricted to professors and only returns the student count.
+
+The browser JWT is held in sessionStorage; this limits persistence but does not protect against same-origin XSS. The deployment guide records the risk and HttpOnly cookie option.
+
+Rendered UML diagrams (editable PlantUML sources are in the same directory):
+
+- `docs/modelagem/lab04-seq-autenticacao.png`
+- `docs/modelagem/lab04-seq-transferencia.png`
+- `docs/modelagem/lab04-seq-resgate.png`
+- `docs/modelagem/lab04-seq-cupom.png`
+- `docs/modelagem/lab04-visao-geral-interacao.png`
+- `docs/modelagem/lab04-diagrama-implantacao.png`

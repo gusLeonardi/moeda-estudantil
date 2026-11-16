@@ -27,8 +27,12 @@ def professor_payload(endereco, **overrides):
     return data
 
 
+def provisionar_professor(client, payload):
+    return client.post("/api/professores", json=payload, headers={"X-Admin-Token": "test-only-admin-token"})
+
+
 def criar_participantes(client, endereco):
-    professor = client.post("/api/professores", json=professor_payload(endereco))
+    professor = provisionar_professor(client, professor_payload(endereco))
     aluno = client.post("/api/alunos", json=aluno_payload(endereco))
     assert professor.status_code == 201
     assert aluno.status_code == 201
@@ -36,7 +40,7 @@ def criar_participantes(client, endereco):
 
 
 def test_crud_professor_e_saldo_inicial(client, endereco):
-    response = client.post("/api/professores", json=professor_payload(endereco))
+    response = provisionar_professor(client, professor_payload(endereco))
     assert response.status_code == 201
     professor = response.json()
     assert professor["saldo"] == "1000.00"
@@ -54,11 +58,11 @@ def test_crud_professor_e_saldo_inicial(client, endereco):
 
 
 def test_professor_duplicado_e_instituicao_inexistente(client, endereco):
-    assert client.post("/api/professores", json=professor_payload(endereco)).status_code == 201
+    assert provisionar_professor(client, professor_payload(endereco)).status_code == 201
     duplicate = professor_payload(endereco, email="outro@example.com")
-    assert client.post("/api/professores", json=duplicate).status_code == 409
+    assert provisionar_professor(client, duplicate).status_code == 409
     missing = professor_payload(endereco, cpf="52998224725", email="novo@example.com", instituicao_id=999)
-    assert client.post("/api/professores", json=missing).status_code == 404
+    assert provisionar_professor(client, missing).status_code == 404
 
 
 def test_transferencia_e_extratos(client, endereco):

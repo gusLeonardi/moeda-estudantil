@@ -2,6 +2,7 @@
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
 
@@ -30,6 +31,25 @@ class Settings(BaseSettings):
         if not secret and self.app_env.lower() == "production":
             raise RuntimeError("JWT_SECRET precisa ser configurado em produção")
         return secret or "local-development-secret-change-before-deploy"
+
+    def validate_production(self) -> None:
+        if self.app_env.lower() != "production":
+            return
+        secret = self.jwt_secret or __import__("os").getenv("JWT_SECRET", "")
+        if len(secret.encode()) < 32:
+            raise RuntimeError("JWT_SECRET de pelo menos 32 bytes precisa ser configurado em produção")
+        if len(self.admin_cron_token.encode()) < 32:
+            raise RuntimeError("ADMIN_CRON_TOKEN de pelo menos 32 bytes precisa ser configurado em produção")
+        if not self.database_url.startswith(("postgresql://", "postgresql+psycopg://")):
+            raise RuntimeError("DATABASE_URL de PostgreSQL precisa ser configurada em produção")
+        sslmode = make_url(self.database_url).query.get("sslmode")
+        if sslmode not in {"require", "verify-ca", "verify-full"}:
+            raise RuntimeError("DATABASE_URL precisa exigir TLS com sslmode=require ou superior")
+        if not self.cors_origin_list or any(
+            origin == "*" or not origin.startswith("https://")
+            for origin in self.cors_origin_list
+        ):
+            raise RuntimeError("CORS_ORIGINS precisa conter apenas origens HTTPS explícitas em produção")
 
 
 @lru_cache

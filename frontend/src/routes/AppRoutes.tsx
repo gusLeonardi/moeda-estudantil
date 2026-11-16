@@ -25,7 +25,6 @@ export function AppRoutes() {
         <Route path="login" element={<Login />} />
         <Route path="cadastro" element={<RegistrationChoice />} />
         <Route path="cadastro/aluno" element={<AlunoForm />} />
-        <Route path="cadastro/professor" element={<ProfessorForm />} />
         <Route path="cadastro/empresa" element={<EmpresaForm />} />
         <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>

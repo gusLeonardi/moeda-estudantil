@@ -1,0 +1,40 @@
+@startuml
+title Conquista — Diagrama de Implantação (planejado)
+skinparam componentStyle uml2
+left to right direction
+
+node "Dispositivo do usuário\n<<device>>" as device {
+  node "Navegador" as browser {
+    artifact "Aplicação web\nReact + TypeScript" as webclient
+  }
+}
+
+cloud "Internet" as internet
+
+node "Vercel\n<<planned>>" as vercel {
+  artifact "Build estático\nfrontend/dist" as frontend
+}
+
+node "Render\n<<planned>>" as render {
+  artifact "API Conquista\nFastAPI + Uvicorn" as api
+  artifact "Alembic\ncomando manual de migration" as migrations
+}
+
+database "Neon\n<<planned>>" as neon {
+  artifact "PostgreSQL" as postgres
+}
+
+cloud "Provedor SMTP\n<<optional; planned>>" as smtp
+
+webclient --> frontend : HTTPS
+browser --> api : HTTPS / JSON + Bearer JWT
+api --> postgres : PostgreSQL TLS\nDATABASE_URL (sslmode=require)
+api --> smtp : SMTP STARTTLS/SSL\nquando configurado
+migrations ..> postgres : executar após aprovação\ne fora do start command
+
+note bottom
+  Os nós Vercel, Render e Neon representam a arquitetura pretendida.
+  Nenhuma URL pública foi verificada como implantada nesta entrega.
+  O estado real das plataformas depende de configuração e acesso externo.
+end note
+@enduml

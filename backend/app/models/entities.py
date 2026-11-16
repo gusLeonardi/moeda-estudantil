@@ -7,6 +7,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Integer,
     Numeric,
     String,
     UniqueConstraint,
@@ -54,6 +55,13 @@ class AtivacaoConta(Base):
     usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="CASCADE"), primary_key=True)
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     expira_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AuthRateLimit(Base):
+    __tablename__ = "auth_rate_limits"
+    bucket_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    window_started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False)
 
 class Endereco(Base):
     __tablename__ = "enderecos"
