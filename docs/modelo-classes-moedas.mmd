@@ -1,35 +1,24 @@
-%% Conquista — classes do fluxo de moedas
-classDiagram
-  Usuario <|-- Aluno
-  Usuario <|-- Professor
-  Usuario <|-- EmpresaParceira
-  InstituicaoEnsino "1" --> "0..*" Aluno
-  InstituicaoEnsino "1" --> "0..*" Professor
-  Professor "1" --> "0..*" TransferenciaMoedas
-  Aluno "1" --> "0..*" TransferenciaMoedas
-  EmpresaParceira "1" --> "0..*" Vantagem
-  Aluno "1" --> "0..*" ResgateVantagem
-  Vantagem "1" --> "0..*" ResgateVantagem
+# Apresentação da Sprint 3 — Conquista (roteiro atualizado)
 
-  class Professor {
-    +cpf: str
-    +departamento: str
-    +saldo: Decimal
-  }
-  class TransferenciaMoedas {
-    +quantidade: Decimal
-    +justificativa: str
-    +criado_em: datetime
-  }
-  class Vantagem {
-    +nome: str
-    +descricao: str
-    +custo: Decimal
-    +ativa: bool
-  }
-  class ResgateVantagem {
-    +custo: Decimal
-    +codigo_cupom: str
-    +idempotency_key: str
-    +criado_em: datetime
-  }
+## Sequência sugerida — 20 minutos
+
+| Tempo | Conteúdo |
+|---|---|
+| 0–2 min | Objetivo do Conquista e atores: aluno, professor e empresa |
+| 2–5 min | Arquitetura React → FastAPI → Service → Repository → PostgreSQL/Neon |
+| 5–8 min | Cadastros e validações de alunos, professores e empresas |
+| 8–11 min | Transferência de moedas, justificativa, extratos e e-mail |
+| 11–15 min | Vantagens, resgate, cupom único e conferência/validação |
+| 15–17 min | Crédito semestral de 1.000, saldo acumulado e prevenção de duplicidade |
+| 17–19 min | UML, rastreabilidade e decisões de persistência |
+| 19–20 min | Limitações e perguntas |
+
+## Pontos de atenção
+
+- Demonstrar apenas com dados de teste, porque os saldos do Neon são compartilhados.
+- Não afirmar que há autenticação ou agendamento automático: ainda não existem.
+- A foto da vantagem é opcional; a regra de mesma instituição para transferência não foi identificada no service.
+- Notificação por e-mail é enviada via SMTP, mas entrega ao destinatário depende do provedor.
+- A rotina administrativa de crédito é manual e não deve ser exposta publicamente sem proteção.
+
+Consultar `modelagem/Lab03S03-modelagem-atualizada.pdf` e a matriz em `.md` para os identificadores UC/US.

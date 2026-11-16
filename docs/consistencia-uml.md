@@ -57,7 +57,3 @@ A delimitação da transação (`commit` e `rollback`) permanece corretamente no
 ## Conclusão
 
 Não há conflito estrutural entre os Mermaid da Sprint 3 e o UML original. As diferenças principais são decisões explícitas: React substitui Jinja2 na View e o conjunto de entidades foi reduzido ao escopo cadastral autorizado. A única divergência técnica identificada é a aderência ainda parcial ao Repository em alguns comandos dos services.
-
-## Atualização Lab04S01
-
-A autenticação e a autorização foram implementadas após a auditoria histórica da Sprint 3. Os diagramas PlantUML editáveis de login/ativação, transferência, resgate, conferência e visão geral de interação estão em `docs/modelagem/lab04-*.puml`. O histórico acima descreve o estado original, não o estado atual do código.

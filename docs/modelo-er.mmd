@@ -1,44 +1,55 @@
-%% Conquista — Modelo ER da Sprint 3
-erDiagram
-  USUARIOS ||--|| ENDERECOS : possui
-  USUARIOS ||--o| ALUNOS : especializa
-  USUARIOS ||--o| EMPRESAS_PARCEIRAS : especializa
-  INSTITUICOES_ENSINO ||--o{ ALUNOS : matricula
-  USUARIOS {
-    int id PK
-    varchar nome
-    varchar email UK
-    varchar tipo
-    varchar senha_hash "nullable"
-    timestamp criado_em
-    timestamp atualizado_em
-  }
-  ENDERECOS {
-    int id PK
-    int usuario_id FK,UK
-    varchar logradouro
-    varchar numero
-    varchar complemento "nullable"
-    varchar bairro
-    varchar cidade
-    char estado
-    char cep
-  }
-  INSTITUICOES_ENSINO {
-    int id PK
-    varchar nome UK
-    varchar sigla UK
-  }
-  ALUNOS {
-    int usuario_id PK,FK
-    char cpf UK
-    varchar rg
-    varchar curso
-    int instituicao_id FK
-    numeric saldo "default 0.00"
-  }
-  EMPRESAS_PARCEIRAS {
-    int usuario_id PK,FK
-    char cnpj UK
-    varchar telefone
-  }
+%% Conquista — Fluxo completo de cadastro de aluno
+sequenceDiagram
+  autonumber
+  actor Usuario as Usuário
+  participant Form as Formulário React
+  participant Zod
+  participant Axios
+  participant Router as Router FastAPI
+  participant Pydantic
+  participant Service as AlunoService
+  participant Repo as UsuarioRepository
+  participant ORM as SQLAlchemy
+  participant DB as PostgreSQL
+
+  Usuario->>Form: Preenche dados e seleciona instituição
+  Form->>Zod: Valida campos, CPF, e-mail e endereço
+  alt Dados inválidos no cliente
+    Zod-->>Form: Erros por campo
+    Form-->>Usuario: Exibe mensagens de validação
+  else Dados válidos
+    Form->>Axios: Envia POST /api/alunos
+    Axios->>Router: HTTP com JSON
+    Router->>Pydantic: Constrói AlunoCreate
+    alt Payload inválido
+      Pydantic-->>Axios: HTTP 422
+      Axios-->>Form: Mensagem de validação
+    else Payload válido
+      Router->>Service: create(data)
+      Service->>Repo: Consulta instituição e duplicidades
+      Repo->>ORM: Executa consultas tipadas
+      ORM->>DB: SELECT
+      DB-->>ORM: Resultado
+      alt Instituição inexistente
+        Service-->>Router: NotFoundError
+        Router-->>Axios: HTTP 404
+      else CPF ou e-mail duplicado
+        Service-->>Router: ConflictError
+        Router-->>Axios: HTTP 409
+      else Cadastro permitido
+        Service->>Repo: Solicita persistência de Usuario, Endereco e Aluno
+        Repo->>ORM: Adiciona o agregado à sessão
+        ORM->>DB: INSERT em uma transação
+        alt Conflito de integridade
+          DB-->>ORM: IntegrityError
+          Service->>ORM: rollback da sessão
+          Router-->>Axios: HTTP 409
+        else Persistência concluída
+          Service->>ORM: commit da sessão
+          Router-->>Axios: HTTP 201 com AlunoResponse
+          Axios-->>Form: Aluno cadastrado
+          Form-->>Usuario: Redireciona e informa sucesso
+        end
+      end
+    end
+  end

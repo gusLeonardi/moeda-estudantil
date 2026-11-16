@@ -1,29 +1,18 @@
-%% Conquista — resgate idempotente de vantagem
-sequenceDiagram
-  actor Admin as Operador local
-  participant UI as React
-  participant API as FastAPI
-  participant Service as ResgateService
-  participant Repo as VantagemRepository
-  participant DB as PostgreSQL
+%% Conquista — Visão de implantação
+flowchart LR
+  User[Usuário]
+  Browser[Navegador]
+  Frontend[Aplicação React / Vite]
+  API[API FastAPI / Uvicorn]
+  Neon[(PostgreSQL / Neon)]
+  Env[Variáveis de ambiente]
 
-  Admin->>UI: Seleciona aluno e vantagem
-  UI->>API: POST /api/resgates com idempotency_key
-  API->>Service: ResgateCreate validado
-  Service->>Repo: Procura pedido pela chave
-  alt pedido já processado
-    Repo-->>Service: Resgate existente
-    API-->>UI: Mesmo cupom, sem novo débito
-  else novo pedido
-    Service->>Repo: Verifica vantagem ativa
-    Repo->>DB: UPDATE aluno SET saldo = saldo - custo WHERE saldo >= custo
-    alt saldo insuficiente
-      DB-->>Repo: 0 linhas alteradas
-      Service->>DB: ROLLBACK
-      API-->>UI: 409 Conflict
-    else débito permitido
-      Repo->>DB: Registra resgate e cupom único
-      Service->>DB: COMMIT
-      API-->>UI: 201 Created com cupom
-    end
-  end
+  User --> Browser
+  Browser --> Frontend
+  Frontend -- HTTPS / JSON --> API
+  API -- TLS + psycopg --> Neon
+  Env -. VITE_API_URL .-> Frontend
+  Env -. DATABASE_URL e CORS_ORIGINS .-> API
+
+  note[Autenticação e autorização permanecem fora do escopo da Sprint 3]
+  note -. restrição atual .-> API

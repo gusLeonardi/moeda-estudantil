@@ -1,0 +1,54 @@
+classDiagram
+  Usuario "1" *-- "0..1" Endereco
+  Usuario "1" -- "0..1" Aluno
+  Usuario "1" -- "0..1" Professor
+  Usuario "1" -- "0..1" EmpresaParceira
+  InstituicaoEnsino "1" -- "0..*" Aluno
+  InstituicaoEnsino "1" -- "0..*" Professor
+  Professor "1" -- "0..*" TransferenciaMoedas
+  Aluno "1" -- "0..*" TransferenciaMoedas
+  Professor "1" -- "0..*" CreditoSemestral
+  EmpresaParceira "1" -- "0..*" Vantagem
+  Aluno "1" -- "0..*" ResgateVantagem
+  Vantagem "1" -- "0..*" ResgateVantagem
+  EmpresaParceira "1" -- "0..*" ResgateVantagem
+  class Usuario {
+    +int id
+    +str nome
+    +str email
+    +str tipo
+  }
+  class Professor {
+    +int usuario_id
+    +str cpf
+    +Decimal saldo
+  }
+  class Aluno {
+    +int usuario_id
+    +str cpf
+    +Decimal saldo
+  }
+  class CreditoSemestral {
+    +int professor_id
+    +int ano
+    +int semestre
+    +Decimal quantidade
+  }
+  class TransferenciaMoedas {
+    +int professor_id
+    +int aluno_id
+    +Decimal quantidade
+    +str justificativa
+  }
+  class Vantagem {
+    +int empresa_id
+    +Decimal custo
+    +bool ativa
+    +str imagem_url
+  }
+  class ResgateVantagem {
+    +int aluno_id
+    +int vantagem_id
+    +str codigo_cupom
+    +datetime utilizado_em
+  }
