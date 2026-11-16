@@ -2,6 +2,7 @@ def aluno_payload(endereco, **overrides):
     data = {
         "nome": "Aluno Demo",
         "email": "aluno@example.com",
+        "senha": "Senha-Forte-Teste-123!",
         "cpf": "52998224725",
         "rg": "MG1234567",
         "curso": "Engenharia de Software",
@@ -16,6 +17,7 @@ def professor_payload(endereco, **overrides):
     data = {
         "nome": "Professor Demo",
         "email": "professor@example.com",
+        "senha": "Senha-Forte-Teste-123!",
         "cpf": "11144477735",
         "departamento": "Computação",
         "instituicao_id": 1,

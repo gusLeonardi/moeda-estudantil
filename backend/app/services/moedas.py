@@ -22,6 +22,7 @@ from app.schemas.professor import (
 from .creditos import periodo_atual
 from .email_service import notificar_transferencia
 from .errors import ConflictError, NotFoundError
+from app.services.auth import hash_password
 
 
 def professor_response(user: Usuario) -> ProfessorResponse:
@@ -86,6 +87,7 @@ class ProfessorService:
             nome=data.nome.strip(),
             email=str(data.email).lower(),
             tipo="PROFESSOR",
+            senha_hash=hash_password(data.senha),
         )
 
         user.endereco = Endereco(**data.endereco.model_dump())

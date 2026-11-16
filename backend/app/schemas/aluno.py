@@ -9,6 +9,7 @@ from .common import EnderecoInput, EnderecoResponse, is_valid_cpf, only_digits
 class AlunoCreate(BaseModel):
     nome: Annotated[str, Field(min_length=2, max_length=150)]
     email: EmailStr
+    senha: Annotated[str, Field(min_length=12, max_length=128)]
     cpf: str
     rg: Annotated[str, Field(min_length=3, max_length=20)]
     curso: Annotated[str, Field(min_length=2, max_length=150)]

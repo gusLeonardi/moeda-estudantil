@@ -8,6 +8,7 @@ from app.repositories.vantagens import VantagemRepository
 from app.schemas.aluno import AlunoCreate, AlunoResponse, AlunoUpdate
 from app.schemas.empresa import EmpresaCreate, EmpresaResponse, EmpresaUpdate
 from .errors import ConflictError, NotFoundError
+from app.services.auth import hash_password
 
 
 def aluno_response(user: Usuario) -> AlunoResponse:
@@ -34,7 +35,7 @@ class AlunoService:
         if not self.repo.instituicao(data.instituicao_id): raise NotFoundError("Instituição de ensino não encontrada")
         if self.repo.email_exists(str(data.email)): raise ConflictError("E-mail já cadastrado")
         if self.db.scalar(select(Aluno.usuario_id).where(Aluno.cpf == data.cpf)): raise ConflictError("CPF já cadastrado")
-        user = Usuario(nome=data.nome.strip(), email=str(data.email).lower(), tipo="ALUNO")
+        user = Usuario(nome=data.nome.strip(), email=str(data.email).lower(), tipo="ALUNO", senha_hash=hash_password(data.senha))
         user.endereco = Endereco(**data.endereco.model_dump())
         user.aluno = Aluno(cpf=data.cpf, rg=data.rg.strip(), curso=data.curso.strip(), instituicao_id=data.instituicao_id)
         self.db.add(user)
@@ -73,7 +74,7 @@ class EmpresaService:
     def create(self, data: EmpresaCreate):
         if self.repo.email_exists(str(data.email)): raise ConflictError("E-mail já cadastrado")
         if self.db.scalar(select(EmpresaParceira.usuario_id).where(EmpresaParceira.cnpj == data.cnpj)): raise ConflictError("CNPJ já cadastrado")
-        user = Usuario(nome=data.nome.strip(), email=str(data.email).lower(), tipo="EMPRESA")
+        user = Usuario(nome=data.nome.strip(), email=str(data.email).lower(), tipo="EMPRESA", senha_hash=hash_password(data.senha))
         user.endereco = Endereco(**data.endereco.model_dump())
         user.empresa = EmpresaParceira(cnpj=data.cnpj, telefone=data.telefone.strip())
         self.db.add(user); self._commit(); return self.get(user.id)

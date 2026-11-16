@@ -1,4 +1,4 @@
-# Arquitetura do sistema
+﻿# Arquitetura do sistema
 
 ## Visão geral
 
@@ -85,8 +85,8 @@ Os recursos da Sprint 3 são:
 
 ## Segurança e limites
 
-Credenciais ficam em `.env`, ignorado pelo Git. CORS aceita somente origens configuradas. A URL do banco não aparece em respostas ou logs da aplicação. Os CRUDs ainda não possuem autenticação e devem permanecer em ambiente acadêmico controlado.
+Senhas são armazenadas com Argon2id; JWT HS256 expira em 30 minutos. Segredos são configurados por ambiente. As rotas usam autorização por perfil e identificador autenticado nas operações financeiras. Detalhes e matriz pública/privada constam no README Release 02.
 
-Professores, transferências, vantagens e resgates foram adicionados como fluxo administrativo de demonstração. Autenticação e autorização continuam ausentes; portanto, esses endpoints financeiros não devem ser publicados. O campo `senha_hash` não representa um fluxo de login implementado.
+Crédito semestral e provisionamento de professor exigem ADMIN_CRON_TOKEN; alunos e empresas fazem cadastro com senha; contas antigas ativam por token enviado ao e-mail, guardado como hash, expirável e de uso único.
 
 Débitos usam atualizações condicionais no banco (`saldo >= valor`) para impedir saldo negativo sob concorrência. Services coordenam `commit` e `rollback`, enquanto chaves de idempotência impedem o processamento repetido de um resgate.

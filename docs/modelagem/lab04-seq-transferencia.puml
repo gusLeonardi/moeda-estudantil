@@ -1,0 +1,20 @@
+@startuml
+title Transferência de moedas — Conquista
+actor Professor
+boundary Frontend
+control Router
+control AuthService
+control MoedasService
+entity Repository
+database PostgreSQL
+participant SMTP
+Professor -> Frontend: aluno, valor e justificativa
+Frontend -> Router: POST /moedas/transferencias + JWT
+Router -> AuthService: validar assinatura, expiração e PROFESSOR
+Router -> MoedasService: transferir(id professor extraído do JWT)
+MoedasService -> Repository: débito condicional, crédito e registro
+Repository -> PostgreSQL: transação atômica
+PostgreSQL --> Repository: commit ou rollback
+MoedasService -> SMTP: notificar aluno após commit
+MoedasService --> Frontend: resultado
+@enduml

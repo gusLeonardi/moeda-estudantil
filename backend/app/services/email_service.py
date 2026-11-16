@@ -5,6 +5,7 @@ import smtplib
 import ssl
 from decimal import Decimal
 from email.message import EmailMessage
+from email.policy import SMTP
 from html import escape
 from pathlib import Path
 
@@ -39,15 +40,16 @@ def enviar_email(
         )
         return False
 
-    mensagem = EmailMessage()
+    mensagem = EmailMessage(policy=SMTP)
     mensagem["Subject"] = assunto
     mensagem["From"] = remetente
     mensagem["To"] = destinatario
 
     mensagem.set_content(
-        "Esta mensagem contém uma notificação do sistema Conquista."
+        "Esta mensagem contém uma notificação do sistema Conquista.",
+        charset="utf-8",
     )
-    mensagem.add_alternative(conteudo_html, subtype="html")
+    mensagem.add_alternative(conteudo_html, subtype="html", charset="utf-8")
 
     try:
         if porta == 465:

@@ -1,0 +1,20 @@
+@startuml
+title Resgate de vantagem — Conquista
+actor Aluno
+boundary Frontend
+control Router
+control AuthService
+control ResgateService
+entity Repository
+database PostgreSQL
+participant SMTP
+Aluno -> Frontend: escolhe vantagem
+Frontend -> Router: POST /resgates + JWT + idempotency_key
+Router -> AuthService: validar ALUNO
+Router -> ResgateService: resgatar(id aluno do JWT)
+ResgateService -> Repository: verificar chave, vantagem e saldo
+Repository -> PostgreSQL: débito, resgate e cupom únicos
+PostgreSQL --> Repository: commit/rollback
+ResgateService -> SMTP: enviar cupom ao aluno e empresa após commit
+ResgateService --> Frontend: mesmo resultado em repetição idempotente
+@enduml

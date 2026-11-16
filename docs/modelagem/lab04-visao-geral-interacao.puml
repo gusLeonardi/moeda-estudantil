@@ -1,0 +1,19 @@
+@startuml
+title Conquista — UML 2 Interaction Overview Diagram
+start
+:<<InteractionUse>> Login\n[lab04-seq-autenticacao];
+if (JWT válido e perfil ativo?) then (sim)
+  if (Professor solicita transferência?) then (sim)
+    :<<InteractionUse>> TransferenciaProfessor\n[lab04-seq-transferencia];
+  else (não)
+    if (Aluno solicita resgate?) then (sim)
+      :<<InteractionUse>> ResgateAluno\n[lab04-seq-resgate];
+    else (empresa confere cupom)
+      :<<InteractionUse>> ConferenciaCupom\n[lab04-seq-cupom];
+    endif
+  endif
+else (não)
+  :Retornar 401 e solicitar login;
+endif
+stop
+@enduml

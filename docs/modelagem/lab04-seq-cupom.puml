@@ -1,0 +1,30 @@
+﻿@startuml
+title Coupon validation - Conquista
+actor Company
+boundary Frontend
+control Router
+control AuthService
+control CouponService
+entity Repository
+database PostgreSQL
+Company -> Frontend: enter coupon code
+Frontend -> Router: POST /cupons/consultar + JWT
+Router -> AuthService: require EMPRESA and validate JWT
+Router -> CouponService: consult(company id from JWT)
+CouponService -> Repository: find coupon owned by company
+Repository -> PostgreSQL: SELECT coupon and redemption
+PostgreSQL --> Repository: coupon state
+Repository --> CouponService: coupon state
+CouponService --> Router: consultation result
+Router --> Frontend: coupon details
+Company -> Frontend: confirm in-person redemption
+Frontend -> Router: POST /cupons/validar + JWT
+Router -> AuthService: require EMPRESA and validate JWT
+Router -> CouponService: validate(company id from JWT)
+CouponService -> Repository: conditional mark as used
+Repository -> PostgreSQL: UPDATE once and commit
+PostgreSQL --> Repository: commit or conflict
+Repository --> CouponService: final state
+CouponService --> Router: validation result
+Router --> Frontend: valid or already used
+@enduml

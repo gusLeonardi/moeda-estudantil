@@ -1,0 +1,53 @@
+@startuml
+title Conquista — Autenticação, transferência, resgate e cupom
+autonumber
+actor Usuário
+boundary Frontend
+control Router
+control AuthService
+control NegocioService
+entity Repository
+database PostgreSQL
+participant SMTP
+group Login
+Usuário -> Frontend: informa e-mail e senha
+Frontend -> Router: POST /auth/login
+Router -> AuthService: verificar senha Argon2
+AuthService -> Repository: localizar usuário
+Repository -> PostgreSQL: SELECT usuario
+PostgreSQL --> Repository: hash e perfil
+AuthService --> Frontend: JWT assinado (30 min)
+end
+group Transferência do professor
+Usuário -> Frontend: aluno, quantidade e justificativa
+Frontend -> Router: POST /moedas/transferencias + JWT
+Router -> AuthService: validar assinatura, expiração e perfil
+Router -> NegocioService: transferir(id professor do JWT)
+NegocioService -> Repository: débito/crédito condicional e registro
+Repository -> PostgreSQL: transação atômica
+PostgreSQL --> NegocioService: commit/rollback
+NegocioService -> SMTP: notificar aluno (após commit)
+NegocioService --> Frontend: transferência
+end
+group Resgate idempotente
+Usuário -> Frontend: solicita vantagem
+Frontend -> Router: POST /resgates + JWT + chave idempotente
+Router -> AuthService: validar ALUNO
+Router -> NegocioService: resgatar(id aluno do JWT)
+NegocioService -> Repository: verificar chave e saldo
+Repository -> PostgreSQL: débito, cupom e resgate atômicos
+NegocioService -> SMTP: enviar cupom a aluno e empresa
+NegocioService --> Frontend: cupom existente ou recém criado
+end
+group Conferência e validação do cupom
+Usuário -> Frontend: consulta código
+Frontend -> Router: POST /cupons/consultar + JWT
+Router -> AuthService: validar EMPRESA
+Router -> NegocioService: consultar(empresa do JWT)
+NegocioService -> Repository: localizar cupom da empresa
+Repository -> PostgreSQL: SELECT
+Frontend -> Router: POST /cupons/validar + JWT
+Router -> NegocioService: marcar utilizado condicionalmente
+NegocioService -> Repository: commit único
+end
+@enduml

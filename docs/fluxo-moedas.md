@@ -1,8 +1,8 @@
-# Fluxos de moedas, vantagens e resgates
+﻿# Fluxos de moedas, vantagens e resgates
 
 ## Limite de segurança
 
-Esta versão não possui autenticação nem autorização. Cadastro de professores, transferências, gestão de vantagens e resgates são fluxos administrativos de demonstração e devem permanecer restritos ao ambiente local.
+Os fluxos financeiros exigem JWT: transferência para PROFESSOR, resgate para ALUNO e conferência para EMPRESA. Os serviços derivam o ator do token, preservam saldo atômico e idempotência.
 
 ## Transferência do professor para o aluno
 

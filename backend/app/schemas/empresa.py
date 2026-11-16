@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
+from typing import Annotated
 
 from .common import EnderecoInput, EnderecoResponse, is_valid_cnpj, only_digits
 
@@ -8,6 +9,7 @@ from .common import EnderecoInput, EnderecoResponse, is_valid_cnpj, only_digits
 class EmpresaCreate(BaseModel):
     nome: Annotated[str, Field(min_length=2, max_length=150)]
     email: EmailStr
+    senha: Annotated[str, Field(min_length=12, max_length=128)]
     cnpj: str
     telefone: Annotated[str, Field(min_length=8, max_length=20)]
     endereco: EnderecoInput

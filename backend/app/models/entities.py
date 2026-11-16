@@ -41,20 +41,19 @@ class Usuario(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
-
     endereco: Mapped["Endereco"] = relationship(
         back_populates="usuario", uselist=False, cascade="all, delete-orphan"
     )
-    aluno: Mapped["Aluno"] = relationship(
-        back_populates="usuario", uselist=False, cascade="all, delete-orphan"
-    )
-    empresa: Mapped["EmpresaParceira"] = relationship(
-        back_populates="usuario", uselist=False, cascade="all, delete-orphan"
-    )
-    professor: Mapped["Professor"] = relationship(
-        back_populates="usuario", uselist=False, cascade="all, delete-orphan"
-    )
+    aluno: Mapped["Aluno"] = relationship(back_populates="usuario", uselist=False, cascade="all, delete-orphan")
+    empresa: Mapped["EmpresaParceira"] = relationship(back_populates="usuario", uselist=False, cascade="all, delete-orphan")
+    professor: Mapped["Professor"] = relationship(back_populates="usuario", uselist=False, cascade="all, delete-orphan")
 
+
+class AtivacaoConta(Base):
+    __tablename__ = "ativacoes_conta"
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="CASCADE"), primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    expira_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 class Endereco(Base):
     __tablename__ = "enderecos"

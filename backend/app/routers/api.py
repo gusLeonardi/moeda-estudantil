@@ -1,7 +1,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -56,10 +56,33 @@ from app.services.vantagens import (
     ResgateService,
     VantagemService,
 )
+from app.schemas.auth import ActivationRequest, DefinirSenhaRequest, LoginRequest, TokenResponse
+from app.services.auth import activate_account, authenticate, current_user, issue_token, request_activation, require_role
+from app.core.config import get_settings
+from app.models import Usuario
 
 
 router = APIRouter()
 Db = Annotated[Session, Depends(get_db)]
+
+def _self(actor: Usuario, entity_id: int, role: str) -> None:
+    if actor.tipo != role or actor.id != entity_id:
+        raise HTTPException(403, "Acesso negado")
+
+@router.post("/auth/login", response_model=TokenResponse)
+def login(data: LoginRequest, db: Db):
+    user = authenticate(str(data.email), data.senha, db)
+    return TokenResponse(access_token=issue_token(user), id=user.id, nome=user.nome, tipo=user.tipo)
+
+@router.post("/auth/activation/request", status_code=202)
+def solicitar_ativacao(data: ActivationRequest, db: Db):
+    request_activation(str(data.email), db)
+    return {"detail": "Se a conta estiver elegível, as instruções serão enviadas ao e-mail cadastrado."}
+
+@router.post("/auth/activation/complete", status_code=204)
+def concluir_ativacao(data: DefinirSenhaRequest, db: Db):
+    activate_account(str(data.email), data.token, data.senha, db)
+    return Response(status_code=204)
 
 
 # ALUNOS
@@ -67,13 +90,22 @@ Db = Annotated[Session, Depends(get_db)]
 @router.get("/alunos", response_model=list[AlunoResponse])
 def listar_alunos(
     db: Db,
+    actor: Usuario = Depends(require_role("PROFESSOR", "ALUNO")),
     busca: str | None = Query(None, max_length=100),
 ):
+    if actor.tipo == "ALUNO":
+        own = AlunoService(db).get(actor.id)
+        term = (busca or "").strip().lower()
+        searchable = " ".join([own.nome, own.email, own.cpf, own.curso, own.instituicao.nome]).lower()
+        digits = "".join(ch for ch in term if ch.isdigit())
+        if term and term not in searchable and not (digits and digits in own.cpf): return []
+        return [own]
     return AlunoService(db).list(busca)
 
 
 @router.get("/alunos/{entity_id}", response_model=AlunoResponse)
-def obter_aluno(entity_id: int, db: Db):
+def obter_aluno(entity_id: int, db: Db, actor: Usuario = Depends(require_role("ALUNO"))):
+    _self(actor, entity_id, "ALUNO")
     return AlunoService(db).get(entity_id)
 
 
@@ -91,7 +123,9 @@ def atualizar_aluno(
     entity_id: int,
     data: AlunoUpdate,
     db: Db,
+    actor: Usuario = Depends(require_role("ALUNO")),
 ):
+    _self(actor, entity_id, "ALUNO")
     return AlunoService(db).update(entity_id, data)
 
 
@@ -99,7 +133,8 @@ def atualizar_aluno(
     "/alunos/{entity_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def excluir_aluno(entity_id: int, db: Db):
+def excluir_aluno(entity_id: int, db: Db, actor: Usuario = Depends(require_role("ALUNO"))):
+    _self(actor, entity_id, "ALUNO")
     AlunoService(db).delete(entity_id)
     return Response(status_code=204)
 
@@ -109,13 +144,19 @@ def excluir_aluno(entity_id: int, db: Db):
 @router.get("/empresas", response_model=list[EmpresaResponse])
 def listar_empresas(
     db: Db,
+    actor: Usuario = Depends(require_role("EMPRESA")),
     busca: str | None = Query(None, max_length=100),
 ):
-    return EmpresaService(db).list(busca)
+    own = EmpresaService(db).get(actor.id)
+    term = (busca or "").strip().lower()
+    digits = "".join(ch for ch in term if ch.isdigit())
+    if term and term not in (own.nome + " " + own.email + " " + own.cnpj).lower() and not (digits and digits in own.cnpj): return []
+    return [own]
 
 
 @router.get("/empresas/{entity_id}", response_model=EmpresaResponse)
-def obter_empresa(entity_id: int, db: Db):
+def obter_empresa(entity_id: int, db: Db, actor: Usuario = Depends(require_role("EMPRESA"))):
+    _self(actor, entity_id, "EMPRESA")
     return EmpresaService(db).get(entity_id)
 
 
@@ -136,7 +177,9 @@ def atualizar_empresa(
     entity_id: int,
     data: EmpresaUpdate,
     db: Db,
+    actor: Usuario = Depends(require_role("EMPRESA")),
 ):
+    _self(actor, entity_id, "EMPRESA")
     return EmpresaService(db).update(entity_id, data)
 
 
@@ -144,7 +187,8 @@ def atualizar_empresa(
     "/empresas/{entity_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def excluir_empresa(entity_id: int, db: Db):
+def excluir_empresa(entity_id: int, db: Db, actor: Usuario = Depends(require_role("EMPRESA"))):
+    _self(actor, entity_id, "EMPRESA")
     EmpresaService(db).delete(entity_id)
     return Response(status_code=204)
 
@@ -165,7 +209,7 @@ def listar_instituicoes(db: Db):
     "/dashboard/indicadores",
     response_model=dict[str, int],
 )
-def obter_indicadores(db: Db):
+def obter_indicadores(db: Db, actor: Usuario = Depends(current_user)):
     return DashboardService(db).indicators()
 
 
@@ -177,16 +221,18 @@ def obter_indicadores(db: Db):
 )
 def listar_professores(
     db: Db,
+    actor: Usuario = Depends(require_role("PROFESSOR")),
     busca: str | None = Query(None, max_length=100),
 ):
-    return ProfessorService(db).list(busca)
+    return [ProfessorService(db).get(actor.id)]
 
 
 @router.get(
     "/professores/{entity_id}",
     response_model=ProfessorResponse,
 )
-def obter_professor(entity_id: int, db: Db):
+def obter_professor(entity_id: int, db: Db, actor: Usuario = Depends(require_role("PROFESSOR"))):
+    _self(actor, entity_id, "PROFESSOR")
     return ProfessorService(db).get(entity_id)
 
 
@@ -195,7 +241,12 @@ def obter_professor(entity_id: int, db: Db):
     response_model=ProfessorResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def criar_professor(data: ProfessorCreate, db: Db):
+def criar_professor(data: ProfessorCreate, db: Db, x_admin_token: str | None = Header(None)):
+    import hmac
+    expected = get_settings().admin_cron_token
+    local_signup = get_settings().app_env.lower() in {"development", "test"}
+    if not local_signup and (not expected or not x_admin_token or not hmac.compare_digest(expected, x_admin_token)):
+        raise HTTPException(404, "Operação indisponível")
     return ProfessorService(db).create(data)
 
 
@@ -207,7 +258,9 @@ def atualizar_professor(
     entity_id: int,
     data: ProfessorUpdate,
     db: Db,
+    actor: Usuario = Depends(require_role("PROFESSOR")),
 ):
+    _self(actor, entity_id, "PROFESSOR")
     return ProfessorService(db).update(entity_id, data)
 
 
@@ -215,7 +268,8 @@ def atualizar_professor(
     "/professores/{entity_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def excluir_professor(entity_id: int, db: Db):
+def excluir_professor(entity_id: int, db: Db, actor: Usuario = Depends(require_role("PROFESSOR"))):
+    _self(actor, entity_id, "PROFESSOR")
     ProfessorService(db).delete(entity_id)
     return Response(status_code=204)
 
@@ -230,7 +284,9 @@ def excluir_professor(entity_id: int, db: Db):
 def transferir_moedas(
     data: TransferenciaCreate,
     db: Db,
+    actor: Usuario = Depends(require_role("PROFESSOR")),
 ):
+    data.professor_id = actor.id
     return MoedasService(db).transferir(data)
 
 
@@ -238,22 +294,28 @@ def transferir_moedas(
     "/professores/{professor_id}/extrato",
     response_model=ExtratoProfessorResponse,
 )
-def extrato_professor(professor_id: int, db: Db):
-    return MoedasService(db).extrato_professor(professor_id)
+def extrato_professor(professor_id: int, db: Db, actor: Usuario = Depends(require_role("PROFESSOR"))):
+    if actor.id != professor_id: raise HTTPException(403, "Acesso negado")
+    return MoedasService(db).extrato_professor(actor.id)
 
 
 @router.get(
     "/alunos/{aluno_id}/extrato",
     response_model=ExtratoAlunoResponse,
 )
-def extrato_aluno(aluno_id: int, db: Db):
-    return MoedasService(db).extrato_aluno(aluno_id)
+def extrato_aluno(aluno_id: int, db: Db, actor: Usuario = Depends(require_role("ALUNO"))):
+    if actor.id != aluno_id: raise HTTPException(403, "Acesso negado")
+    return MoedasService(db).extrato_aluno(actor.id)
 
 
 # CRÉDITOS SEMESTRAIS
 
 @router.post("/moedas/creditos-semestrais")
-def executar_creditos_semestrais(db: Db):
+def executar_creditos_semestrais(db: Db, x_admin_token: str | None = Header(None)):
+    import hmac
+    expected = get_settings().admin_cron_token
+    if not expected or not x_admin_token or not hmac.compare_digest(expected, x_admin_token):
+        raise HTTPException(404, "Operação indisponível")
     return CreditoSemestralService(db).executar()
 
 
@@ -263,7 +325,9 @@ def executar_creditos_semestrais(db: Db):
 def historico_creditos_semestrais(
     professor_id: int,
     db: Db,
+    actor: Usuario = Depends(require_role("PROFESSOR")),
 ):
+    _self(actor, professor_id, "PROFESSOR")
     return CreditoSemestralService(db).historico(
         professor_id
     )
@@ -277,6 +341,7 @@ def historico_creditos_semestrais(
 )
 def listar_vantagens(
     db: Db,
+    actor: Usuario = Depends(current_user),
     apenas_ativas: bool = Query(False),
     empresa_id: int | None = Query(None, gt=0),
 ):
@@ -290,7 +355,7 @@ def listar_vantagens(
     "/vantagens/{entity_id}",
     response_model=VantagemResponse,
 )
-def obter_vantagem(entity_id: int, db: Db):
+def obter_vantagem(entity_id: int, db: Db, actor: Usuario = Depends(current_user)):
     return VantagemService(db).get(entity_id)
 
 
@@ -299,7 +364,8 @@ def obter_vantagem(entity_id: int, db: Db):
     response_model=VantagemResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def criar_vantagem(data: VantagemCreate, db: Db):
+def criar_vantagem(data: VantagemCreate, db: Db, actor: Usuario = Depends(require_role("EMPRESA"))):
+    data.empresa_id = actor.id
     return VantagemService(db).create(data)
 
 
@@ -311,7 +377,10 @@ def atualizar_vantagem(
     entity_id: int,
     data: VantagemUpdate,
     db: Db,
+    actor: Usuario = Depends(require_role("EMPRESA")),
 ):
+    item = VantagemService(db).get(entity_id)
+    if item.empresa_id != actor.id: raise HTTPException(403, "Acesso negado")
     return VantagemService(db).update(entity_id, data)
 
 
@@ -319,7 +388,9 @@ def atualizar_vantagem(
     "/vantagens/{entity_id}/desativar",
     response_model=VantagemResponse,
 )
-def desativar_vantagem(entity_id: int, db: Db):
+def desativar_vantagem(entity_id: int, db: Db, actor: Usuario = Depends(require_role("EMPRESA"))):
+    item = VantagemService(db).get(entity_id)
+    if item.empresa_id != actor.id: raise HTTPException(403, "Acesso negado")
     return VantagemService(db).desativar(entity_id)
 
 
@@ -330,7 +401,8 @@ def desativar_vantagem(entity_id: int, db: Db):
     response_model=ResgateResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def resgatar_vantagem(data: ResgateCreate, db: Db):
+def resgatar_vantagem(data: ResgateCreate, db: Db, actor: Usuario = Depends(require_role("ALUNO"))):
+    data.aluno_id = actor.id
     return ResgateService(db).create(data)
 
 
@@ -343,7 +415,9 @@ def resgatar_vantagem(data: ResgateCreate, db: Db):
 def consultar_cupom(
     data: CupomConferenciaCreate,
     db: Db,
+    actor: Usuario = Depends(require_role("EMPRESA")),
 ):
+    data.empresa_id = actor.id
     return CupomService(db).consultar(data)
 
 
@@ -354,5 +428,7 @@ def consultar_cupom(
 def validar_cupom(
     data: CupomConferenciaCreate,
     db: Db,
+    actor: Usuario = Depends(require_role("EMPRESA")),
 ):
+    data.empresa_id = actor.id
     return CupomService(db).validar(data)

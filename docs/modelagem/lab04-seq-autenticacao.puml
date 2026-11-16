@@ -1,0 +1,24 @@
+@startuml
+title Login e ativação segura — Conquista
+actor Usuário
+boundary Frontend
+control AuthRouter
+control AuthService
+database PostgreSQL
+Usuário -> Frontend: e-mail e senha
+Frontend -> AuthRouter: POST /auth/login
+AuthRouter -> AuthService: autenticar
+AuthService -> PostgreSQL: buscar usuário por e-mail
+PostgreSQL --> AuthService: hash Argon2id e perfil
+AuthService --> AuthRouter: validar senha, emitir JWT HS256 (30 min)
+AuthRouter --> Frontend: JWT e perfil
+opt Conta legada sem senha
+  Usuário -> AuthRouter: pedir ativação por e-mail
+  AuthRouter -> AuthService: gerar token aleatório
+  AuthService -> PostgreSQL: salvar hash e validade (15 min)
+  AuthService --> Usuário: enviar token ao e-mail cadastrado
+  Usuário -> AuthRouter: token + nova senha
+  AuthRouter -> AuthService: validar e consumir token atomicamente
+  AuthService -> PostgreSQL: remover concessão e gravar hash Argon2id
+end
+@enduml

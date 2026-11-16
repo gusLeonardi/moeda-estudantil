@@ -11,6 +11,7 @@ from .common import EnderecoInput, EnderecoResponse, is_valid_cpf, only_digits
 class ProfessorCreate(BaseModel):
     nome: Annotated[str, Field(min_length=2, max_length=150)]
     email: EmailStr
+    senha: Annotated[str, Field(min_length=12, max_length=128)]
     cpf: str
     departamento: Annotated[str, Field(min_length=2, max_length=150)]
     instituicao_id: int = Field(gt=0)

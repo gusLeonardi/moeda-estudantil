@@ -5,6 +5,7 @@ def empresa_payload(endereco, **overrides):
     data = {
         "nome": "Empresa Demo",
         "email": "empresa@example.com",
+        "senha": "Senha-Forte-Teste-123!",
         "cnpj": "11222333000181",
         "telefone": "3133334444",
         "endereco": endereco,

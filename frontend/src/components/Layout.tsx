@@ -12,6 +12,8 @@ import {
 
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { clearSession, readSession } from '../auth/session';
 
 const links = [
   ['/', 'Visão geral', Home],
@@ -25,6 +27,9 @@ const links = [
 
 export function Layout() {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const session = readSession();
+  const allowed = session?.tipo === 'ALUNO' ? new Set(['/','/alunos','/catalogo']) : session?.tipo === 'PROFESSOR' ? new Set(['/','/alunos','/professores']) : new Set(['/','/empresas','/vantagens','/catalogo','/cupons']);
 
   return (
     <div className="min-h-screen lg:flex">
@@ -65,7 +70,7 @@ export function Layout() {
           aria-label="Navegação principal"
           className="space-y-2 p-4"
         >
-          {links.map(([to, label, Icon]) => (
+          {links.filter(([to]) => allowed.has(to)).map(([to, label, Icon]) => (
             <NavLink
               key={to}
               to={to}
@@ -120,6 +125,7 @@ export function Layout() {
           <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
             Ambiente acadêmico
           </span>
+          <button className="btn-secondary ml-3" onClick={() => { clearSession(); navigate('/login', { replace: true }); }}>Sair</button>
         </header>
 
         <div className="mx-auto max-w-7xl p-4 sm:p-8">

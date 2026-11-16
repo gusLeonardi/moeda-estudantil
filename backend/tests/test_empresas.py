@@ -1,5 +1,5 @@
 def empresa_payload(endereco, **overrides):
-    data = {"nome":"Livraria Campus","email":"contato@livraria.com","cnpj":"11222333000181","telefone":"3133334444","endereco":endereco}
+    data = {"nome":"Livraria Campus","email":"contato@livraria.com","senha":"Senha-Forte-Teste-123!","cnpj":"11222333000181","telefone":"3133334444","endereco":endereco}
     data.update(overrides); return data
 
 
@@ -13,7 +13,7 @@ def test_crud_empresa(client, endereco):
     response = client.put(f"/api/empresas/{entity_id}", json=update)
     assert response.status_code == 200 and response.json()["nome"] == "Livraria Universitária"
     assert client.delete(f"/api/empresas/{entity_id}").status_code == 204
-    assert client.get(f"/api/empresas/{entity_id}").status_code == 404
+    assert client.get(f"/api/empresas/{entity_id}").status_code == 401
 
 
 def test_cnpj_e_email_duplicados(client, endereco):
@@ -38,6 +38,6 @@ def test_validacoes_busca_e_campos_protegidos(client, endereco):
 def test_empresa_inexistente(client, endereco):
     update = empresa_payload(endereco)
     update.pop("cnpj")
-    assert client.get("/api/empresas/999").status_code == 404
-    assert client.put("/api/empresas/999", json=update).status_code == 404
-    assert client.delete("/api/empresas/999").status_code == 404
+    assert client.get("/api/empresas/999").status_code == 401
+    assert client.put("/api/empresas/999", json=update).status_code == 401
+    assert client.delete("/api/empresas/999").status_code == 401

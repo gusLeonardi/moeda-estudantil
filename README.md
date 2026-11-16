@@ -1,4 +1,4 @@
-# Conquista — Sistema de Moeda Estudantil
+﻿# Conquista — Sistema de Moeda Estudantil
 
 O **Conquista** é uma plataforma acadêmica para reconhecimento do mérito estudantil por meio de moedas virtuais. A proposta é permitir que professores reconheçam a participação e o desempenho dos alunos e que, futuramente, essas moedas sejam trocadas por produtos, descontos e outros benefícios oferecidos por empresas parceiras.
 
@@ -323,4 +323,18 @@ npm run build
 
 ## Estado atual
 
-A base da **Sprint 3 permanece funcional** e foi estendida com professores, transferências, extratos, vantagens, resgates e cupons para demonstração local. Autenticação, autorização, validação presencial de cupons, crédito semestral e e-mails permanecem pendentes.
+A Release 02 acrescentou autenticação por perfil, recuperação segura de contas antigas, transferências, vantagens, resgates e cupons. O estado de autorização e as configurações estão detalhados abaixo; o deploy em nuvem ainda não foi executado.
+
+## Release 02 — Lab04S01 security
+
+Authorization matrix: public endpoints are `POST /api/auth/login`, `POST /api/auth/activation/request`, `POST /api/auth/activation/complete`, `POST /api/alunos`, `POST /api/empresas`, `GET /api/instituicoes`, and `GET /health`. `POST /api/professores` and `POST /api/moedas/creditos-semestrais` require the internal `X-Admin-Token` / `ADMIN_CRON_TOKEN`; no user-facing admin role can be self-assigned. Other API endpoints require a valid bearer JWT. Student account reads/updates and their statement are self-only; professor account/statement and transfers require `PROFESSOR`; company account, benefit management and coupon confirmation require `EMPRESA`. A student can only retrieve their own student record; professors can list students as transfer recipients. `GET /api/vantagens` and single-benefit reads require authentication.
+
+New student and company accounts require a 12-character minimum password. Professor provisioning is an institution-controlled internal operation and does not have a self-service registration path. Legacy accounts without a password can request an email activation grant; only the hash is stored, it expires after 15 minutes, and it is consumed atomically once. SMTP must be configured for delivery. Set a strong `JWT_SECRET` and `ADMIN_CRON_TOKEN` in production. Do not put these values in frontend variables.
+
+PlantUML sources for the implemented authentication, transfer, redemption and coupon flows are `docs/modelagem/lab04-sequencias.puml` and `docs/modelagem/lab04-visao-geral-interacao.puml`.
+`20261116_0006` adds only the activation-token table and leaves pre-existing user rows untouched. The current machine has neither a running PostgreSQL service nor an available Docker daemon; `docker info` failed with `failed to connect to the docker API ... dockerDesktopLinuxEngine: The system cannot find the file specified`. The migration has not been run against Neon or any shared database.
+Individual sequence sources: `lab04-seq-autenticacao.puml`, `lab04-seq-transferencia.puml`, `lab04-seq-resgate.puml`, and `lab04-seq-cupom.puml`. The UML 2 interaction overview uses explicit `InteractionUse` nodes referencing those interactions, with decision/merge flow on the authenticated role.
+
+### Cadastro de contas para desenvolvimento
+
+A tela pública `/cadastro` permite escolher ALUNO, PROFESSOR ou EMPRESA. Cadastros de aluno e empresa são aprovados ao salvar. Em `APP_ENV=development` ou `test`, o cadastro de professor também é aprovado automaticamente e aplica o saldo inicial/semestral definido pelo sistema. Em produção, o provisionamento de professor continua restrito a `ADMIN_CRON_TOKEN`; defina `APP_ENV=production` no Render.
